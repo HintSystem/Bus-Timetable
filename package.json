@@ -1,0 +1,45 @@
+{
+  "name": "bus-timetable",
+  "version": "0.0.1",
+  "description": "Aplikācija autobusu maršrutu, lokāciju un laika grafika izklāstam",
+  "productName": "Autobusu Saraksts",
+  "author": "HintSystem <kokins24jul@gmail.com>",
+  "private": true,
+  "scripts": {
+    "lint": "eslint --ext .js,.vue ./",
+    "format": "prettier --write \"**/*.{js,vue,scss,html,md,json}\" --ignore-path .gitignore",
+    "test": "echo \"No test specified\" && exit 0",
+    "dev": "quasar dev",
+    "prod": "node server.js",
+    "build": "quasar build"
+  },
+  "dependencies": {
+    "@quasar/extras": "^1.16.8",
+    "axios": "^1.2.1",
+    "connect-history-api-fallback": "^2.0.0",
+    "leaflet": "^1.9.4",
+    "mongodb": "^6.2.0",
+    "mongoose": "^8.0.1",
+    "pinia": "^2.0.11",
+    "quasar": "^2.14.0",
+    "socket.io": "^4.7.2",
+    "vue": "^3.0.0",
+    "vue-router": "^4.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.10.0",
+    "eslint-plugin-vue": "^9.0.0",
+    "eslint-config-standard": "^17.0.0",
+    "eslint-plugin-import": "^2.19.1",
+    "eslint-plugin-n": "^15.0.0",
+    "eslint-plugin-promise": "^6.0.0",
+    "@quasar/app-vite": "^1.7.0",
+    "autoprefixer": "^10.4.2",
+    "postcss": "^8.4.14"
+  },
+  "engines": {
+    "node": "^20 || ^18 || ^16 || ^14.19",
+    "npm": ">= 6.13.4",
+    "yarn": ">= 1.21.1"
+  }
+}
