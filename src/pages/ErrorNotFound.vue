@@ -1,21 +1,18 @@
 <template>
   <div
     class="fullscreen bg-secondary text-white text-center q-pa-md flex flex-center"
+    style="font-size: 3.5vh; user-select: none;"
   >
     <div>
-      <div style="font-size: 30vh; line-height: 28vh">404</div>
+      <div style="font-size: 14em; line-height: 90%;">404</div>
 
-      <div class="text-h4" style="opacity: 0.45">Oops. Nothing here...</div>
+      <div style="font-size: 1.8em; opacity: 0.45">Oops. Nothing here...</div>
 
       <q-btn
         class="q-mt-xl"
-        color="white"
-        text-color="blue"
-        unelevated
         to="/"
         label="Go Home"
         no-caps
-        rounded
         size="xl"
       />
     </div>
@@ -29,3 +26,11 @@ export default defineComponent({
   name: 'ErrorNotFound'
 })
 </script>
+
+<style scoped lang="scss">
+.q-btn {
+  background: lighten($secondary, 18);
+  color: $primary;
+  border-radius: 100vh;
+}
+</style>
