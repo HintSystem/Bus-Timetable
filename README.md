@@ -1,8 +1,11 @@
-# Bus Timetable (bus-timetable)
+# Bus Timetable web app
 
-An app for displaying routes, time tables and tracking buses.
+A quasar web app for displaying routes, timetables and tracking buses.
 
-## Install the dependencies
+
+## Environment setup
+
+### Install the dependencies
 
 ```bash
 yarn
@@ -10,7 +13,8 @@ yarn
 npm install
 ```
 
-### Start the app in development mode (hot-code reloading, error reporting, database editor and other dev menus with /dev)
+### Start the app in development mode
+(hot-code reloading, error reporting, database editor and other dev tools on **'/dev'** page)
 
 ```bash
 yarn dev
@@ -26,7 +30,9 @@ yarn lint
 npm run lint
 ```
 
-### Build the app for production
+## Building
+
+### Create build
 
 ```bash
 yarn build
@@ -42,6 +48,6 @@ yarn prod
 npm run prod
 ```
 
-### Customize the configuration
+### Customize quasar configuration
 
 See [Configuring quasar.config.js](https://v2.quasar.dev/quasar-cli-vite/quasar-config-js).
