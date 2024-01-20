@@ -12,7 +12,6 @@ function initDataModel () {
     edit: shallowRef(new Map()),
     delete: shallowRef(new Map()),
     insert: shallowRef(new Map())
-    // saved: shallowRef({}),
   }
 
   const stateCount = {
@@ -41,7 +40,7 @@ function setPathValue (entry, path, val) {
 
 // Converts a single key into an array of keys
 function parseKeys (key) {
-  if (typeof key === 'string') {
+  if (typeof key === 'string' || typeof key === 'number') {
     return [key]
   } else if (typeof key !== 'object') console.error('Key with type `%s` is not supported', typeof key)
 
@@ -49,12 +48,17 @@ function parseKeys (key) {
 }
 
 const dataModels = {}
+let insertCount = 0
 
-export default (dataType) => {
+export default (dataType, defaultRow) => {
   if (dataType === undefined) console.error('No data type defined for dataManager')
 
-  dataModels[dataType] ||= initDataModel()
+  dataModels[dataType] ||= initDataModel(defaultRow)
   const dataModel = dataModels[dataType]
+
+  const data = computed(() => {
+    return [...dataModel.data.value, ...dataModel.insert.value.values()]
+  })
 
   const loading = ref(false)
   const stateCount = dataModel.stateCount
@@ -69,8 +73,13 @@ export default (dataType) => {
     if (dataModel.insert.value.has(key)) return 'insert'
 
     if (dataModel.edit.value.has(key)) return 'edit'
-    return undefined
+    return 'data'
   }
+
+  const setDefault = (row) => {
+    dataModel.defaultRow = row
+  }
+  if (defaultRow && dataModel.defaultRow === undefined) setDefault(defaultRow)
 
   const resetItem = (keys) => {
     keys = parseKeys(keys)
@@ -82,18 +91,65 @@ export default (dataType) => {
     })
   }
 
-  const markDeleted = (keys, bool) => {
-    keys = parseKeys(keys)
-
-    dataModel.delete.value = produce(dataModel.delete.value, draft => {
-      for (const key of keys) {
-        if (bool) { draft.set(key, true); continue }
-        draft.delete(key)
+  // Run a function based on the key's state
+  // If no function exists for the grouped state, then it will be sent to remainder instead
+  function stateAction (keys, options) {
+    keys = Object.groupBy(parseKeys(keys), key => {
+      const state = stateFromKey(key)
+      if (state in options) {
+        return state
       }
+      return 'remainder'
+    })
+
+    for (const state in keys) {
+      if (state in options) {
+        options[state](keys[state])
+      }
+    }
+  }
+
+  const markDeleted = (keys, bool) => {
+    const actions = {
+      remainder (actionKeys) {
+        dataModel.delete.value = produce(dataModel.delete.value, draft => {
+          for (const key of actionKeys) {
+            if (bool) { draft.set(key, true); continue }
+            draft.delete(key)
+          }
+        })
+      },
+
+      insert (actionKeys) {
+        dataModel.insert.value = produce(dataModel.insert.value, draft => {
+          for (const key of actionKeys) draft.delete(key)
+        })
+      }
+    }
+
+    stateAction(keys, actions)
+  }
+
+  const addRow = () => {
+    if (dataModel.defaultRow === undefined) { console.error('Can\'t insert a new row when default row isn\'t set'); return }
+
+    dataModel.insert.value = produce(dataModel.insert.value, draft => {
+      insertCount++
+
+      draft.set(insertCount, { ...dataModel.defaultRow, _id: insertCount })
     })
   }
 
   const setValue = (index, callback) => {
+    // Index is not present because it's an inserted element
+    if (dataModel.data.value[index] === undefined) {
+      const id = data.value[index]._id
+      dataModel.insert.value = produce(dataModel.insert.value, draft => {
+        callback(draft.get(id), draft)
+      })
+      return
+    }
+
     dataModel.data.value = produce(
       dataModel.data.value,
       draft => {
@@ -132,11 +188,14 @@ export default (dataType) => {
 
   return {
     dataModel,
+    data,
     loading,
     stateCount,
     stateFromKey,
+    setDefault,
     resetItem,
     markDeleted,
+    addRow,
     setValue,
     queryData
   }

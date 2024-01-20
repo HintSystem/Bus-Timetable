@@ -1,18 +1,30 @@
 <template>
-  <q-page class="q-pt-md" style="display: flex; flex-direction: column; gap: 1rem;">
+  <q-page class="q-pt-md column" style="gap: 1rem;">
     <div class="actionbar">
-      <q-select
-        standout
-        dense
-        v-model="selectedDataType"
-        :options="dataSelect"
-        menu-anchor="top left"
-        label="Data type"
-        style="width: 10em;"
-        popup-content-style="border-radius:18px"
-        ref="dSel"
-        @popup-hide="$refs.dSel.blur()"
-      />
+      <div class="row" style="gap: 0.6em">
+        <q-select
+          standout
+          dense
+          v-model="selectedDataType"
+          :options="dataSelect"
+          menu-anchor="top left"
+          label="Data type"
+          style="width: 10em;"
+          popup-content-style="border-radius:18px"
+          ref="dSel"
+          @popup-hide="$refs.dSel.blur()"
+        />
+
+        <template v-for="button in buttons" :key="button.id">
+            <q-btn
+              unelevated
+              no-caps
+              v-bind="button.props"
+              v-on="button.events"
+            >
+            </q-btn>
+        </template>
+      </div>
 
       <div class="row" style="justify-content: flex-end; flex-grow: 1; gap: 0.4rem;">
         <div class="row" style="align-content: flex-end; gap: 0.4rem">
@@ -33,14 +45,38 @@
         <q-btn-dropdown
           unelevated
           rounded
+          auto-close
           no-caps
+          content-style="border-radius:18px"
+          menu-anchor="top right"
           label="Commit"
         >
+          <q-list>
+            <q-item clickable>
+              <q-item-section side>
+                <q-icon name="edit"/>
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>Commit</q-item-label>
+                <q-item-label caption>Save changes made<br>to this data type</q-item-label>
+              </q-item-section>
+            </q-item>
+
+            <q-item clickable>
+              <q-item-section side>
+                <q-icon name="delete"/>
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>Clear</q-item-label>
+                <q-item-label caption>Clear any changes made<br>to this data type</q-item-label>
+              </q-item-section>
+            </q-item>
+          </q-list>
         </q-btn-dropdown>
       </div>
     </div>
 
-    <component :is="dataComponent" style="flex: 1"></component>
+    <component :is="dataComponent" style="flex: 1" @add-button="addButton"></component>
   </q-page>
 </template>
 
@@ -65,6 +101,16 @@ watchEffect(() => {
   dataComponent.value = DataTypes[selectedDataType.value]
   manager = dataManager(selectedDataType.value)
 })
+
+const buttons = shallowRef([])
+function addButton (...options) {
+  const temp = []
+  for (const button of options) {
+    button.id = Date.now()
+    temp.push(button)
+  }
+  buttons.value = temp
+}
 </script>
 
 <style lang="scss">

@@ -38,7 +38,7 @@ import { shallowRef } from 'vue'
 
 import DataView from './DataView.vue'
 import dataManager from './dataManager.vue'
-const manager = dataManager('Routes')
+const manager = dataManager('Routes', { name: 'Route name', inbound: [], outbound: [] })
 
 const columns = shallowRef([
   {
