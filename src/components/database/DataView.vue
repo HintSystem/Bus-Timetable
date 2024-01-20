@@ -1,6 +1,5 @@
 <template>
   <q-table
-    class="q-auto"
     v-bind="props"
     row-key="_id"
     :rows="unref(rows)"
@@ -21,7 +20,7 @@
                 <q-item-section side>
                   <q-icon :name="scope.state === 'delete' ? 'restore_from_trash' : 'delete'" color="negative"/>
                 </q-item-section>
-                <q-item-section class="text-negative">{{ scope.state === 'delete' ? 'Unmark deleted' : 'Mark deleted'}}</q-item-section>
+                <q-item-section class="text-negative">{{ getMenuDeleteLabel(scope.state) }}</q-item-section>
               </q-item>
 
               <q-separator/>
@@ -55,6 +54,7 @@ import { QTable, copyToClipboard } from 'quasar'
 import _dataManager from './dataManager.vue'
 
 // const emits = defineEmits(QTable.emits)
+const emit = defineEmits(['addButton'])
 const props = defineProps({
   ...QTable.props,
   dataManager: Object, // specify data manager if you want control over it
@@ -78,8 +78,28 @@ if (props.dataManager) {
 }
 
 manager.queryData()
-const _dataModel = manager.dataModel
-const rows = _dataModel.data
+const rows = manager.data
+
+emit('addButton', {
+  icon: 'add',
+  props: {
+    label: 'Add row'
+  },
+  events: {
+    click: () => { manager.addRow() }
+  }
+})
+
+function getMenuDeleteLabel (state) {
+  switch (state) {
+    case 'insert':
+      return 'Remove item'
+    case 'delete':
+      return 'Unmark deleted'
+    default:
+      return 'Mark deleted'
+  }
+}
 
 function getState (scope) {
   const state = manager.stateFromKey(scope.key)
@@ -90,13 +110,9 @@ function getState (scope) {
 
 <style scoped lang="scss">
 tr {
-  &.edit {
-    background: lighten($amber-5, 28);
-  }
-
-  &.delete {
-    background: lighten($red-5, 28);
-  }
+  &.edit { background: lighten($amber-5, 28); }
+  &.delete { background: lighten($red-5, 28); }
+  &.insert { background: lighten($green-5, 28); }
 }
 
 .array {

@@ -74,7 +74,7 @@ import CoordinateDialog from 'components/CoordinateDialog.vue'
 import DataView from './DataView.vue'
 
 import dataManager from './dataManager.vue'
-const manager = dataManager('Stops')
+const manager = dataManager('Stops', { name: 'Stop name', location: { type: 'Point', coordinates: [0, 0] } })
 
 const columns = [
   {
