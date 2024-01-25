@@ -52,7 +52,7 @@
           label="Commit"
         >
           <q-list>
-            <q-item clickable>
+            <q-item clickable @click="manager.commitChanges()">
               <q-item-section side>
                 <q-icon name="edit"/>
               </q-item-section>
@@ -62,7 +62,7 @@
               </q-item-section>
             </q-item>
 
-            <q-item clickable>
+            <q-item clickable @click="manager.clearChanges()">
               <q-item-section side>
                 <q-icon name="delete"/>
               </q-item-section>
