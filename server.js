@@ -1,14 +1,10 @@
-const express = require('express')
-const { createServer } = require('node:http')
+const path = require('path')
 const serveStatic = require('serve-static')
 const history = require('connect-history-api-fallback')
-const path = require('path')
+const backend = require('./server/backend.js')
 
 const port = process.env.PORT || 3000
-const app = express()
-const httpServer = createServer(app)
-
-require('./server/backend.js')(httpServer, app) // api
+const { app, httpServer } = backend.setup()
 
 app.use(history())
 app.use(serveStatic(path.join(__dirname, 'dist', 'spa')))

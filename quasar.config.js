@@ -56,13 +56,8 @@ module.exports = configure(function (/* ctx */) {
 
       afterDev: (params) => {
         // run backend for dev
-        const express = require('express')
-        const { createServer } = require('node:http')
-
-        const app = express()
-        const httpServer = createServer(app)
-
-        require('./server/backend.js')(httpServer, app)
+        const backend = require('./server/backend.js')
+        const { httpServer } = backend.setup()
 
         httpServer.listen(devApiPort)
       },

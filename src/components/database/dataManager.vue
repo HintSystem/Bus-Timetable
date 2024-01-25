@@ -2,7 +2,10 @@
 import { shallowRef, ref, computed } from 'vue'
 
 import axios from 'axios'
-import { produce, enablePatches, enableMapSet } from 'immer'
+import { produce, setAutoFreeze, enablePatches, enableMapSet } from 'immer'
+
+// auto freeze prevents us from clearing all changes
+setAutoFreeze(false)
 enablePatches()
 enableMapSet()
 
@@ -53,13 +56,14 @@ let insertCount = 0
 export default (dataType, defaultRow) => {
   if (dataType === undefined) console.error('No data type defined for dataManager')
 
-  dataModels[dataType] ||= initDataModel(defaultRow)
+  dataModels[dataType] ||= initDataModel()
   const dataModel = dataModels[dataType]
 
   const data = computed(() => {
     return [...dataModel.data.value, ...dataModel.insert.value.values()]
   })
 
+  const apiURL = `/api/${dataType}`
   const loading = ref(false)
   const stateCount = dataModel.stateCount
 
@@ -80,6 +84,15 @@ export default (dataType, defaultRow) => {
     dataModel.defaultRow = row
   }
   if (defaultRow && dataModel.defaultRow === undefined) setDefault(defaultRow)
+
+  const clearChanges = () => {
+    // using map.clear() would be preferred, however it doesn't update the shallowRef
+    dataModel.edit.value = new Map()
+    queryData()
+
+    dataModel.insert.value = new Map()
+    dataModel.delete.value = new Map()
+  }
 
   const resetItem = (keys) => {
     keys = parseKeys(keys)
@@ -170,9 +183,28 @@ export default (dataType, defaultRow) => {
     )
   }
 
-  const queryData = () => {
+  const commitChanges = async () => {
+    if (dataModel.stateCount.delete.value > 0) {
+      const deleteArray = Array.from(dataModel.delete.value.keys())
+      await axios.delete(apiURL, { data: { id: deleteArray } })
+    }
+
+    if (dataModel.stateCount.insert.value > 0) {
+      const insertArray = Array.from(dataModel.insert.value, ([_, value]) => {
+        // destructure and remove _id because otherwise mongoose will try to create a new document with this temporary id
+        const { _id, ...noId } = value
+        return noId
+      })
+      console.log(insertArray)
+      await axios.post(apiURL, { objects: insertArray })
+    }
+
+    clearChanges()
+  }
+
+  const queryData = async () => {
     loading.value = true
-    axios(`/api/${dataType}`).then((response) => {
+    await axios.get(apiURL).then((response) => {
       console.log('%c[API] response received for %c`%s`', 'color:green', 'color:red', dataType)
 
       // needs to be done every time data is requested, otherwise edits won't be displayed when refreshed
@@ -193,10 +225,12 @@ export default (dataType, defaultRow) => {
     stateCount,
     stateFromKey,
     setDefault,
+    clearChanges,
     resetItem,
     markDeleted,
     addRow,
     setValue,
+    commitChanges,
     queryData
   }
 }
