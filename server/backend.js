@@ -6,9 +6,7 @@ function expectJSON (req, res, next) {
 function errBadJSON(res, propertyName, info) {
   const msg = 'JSON property of `' + propertyName + '` does not exist.'
 
-  if (info !== undefined) {
-    msg += ' ' + info
-  }
+  if (info !== undefined) msg += ' ' + info
   res.status(400).json( { message: msg } )
 }
 
@@ -19,9 +17,24 @@ function apiRoute () {
   function setModelRoutes (path, dataModel) {
     router.route(path)
     .get(async (req, res, next) => {
-      dataModel.find().then((results) => {
+      dataModel.find().lean().then((results) => {
         res.status(200).json(results)
       }).catch(next)
+    })
+    .patch(expectJSON, async (req, res, next) => {
+      if (!('objects' in req.body)) {
+        errBadJSON(res, 'objects', 'Key must be the id and the value must contain the changed properties.')
+        return
+      }
+
+      for (const key in req.body.objects) {
+        const doc = await dataModel.findById(key)
+        doc.set(req.body.objects[key])
+        await doc.save().catch((err) => {
+          throw err
+        })
+      }
+      res.status(200).end()
     })
     .post(expectJSON, async (req, res, next) => {
       if (!('objects' in req.body)) {
@@ -33,12 +46,8 @@ function apiRoute () {
         res.status(200).end()
       }).catch(next)
     })
-    .patch((req, res) => {
-
-    })
     .delete(expectJSON, async (req, res, next) => {
       if (!(req.body.id instanceof Array)) {
-        console.log(typeof req.query.id)
         errBadJSON(res, 'id', 'Make sure to submit `id` as an array.')
         return
       }
