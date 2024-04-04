@@ -59,7 +59,11 @@ function apiRoute () {
   }
 
   const mongoose = require('mongoose')
-  mongoose.connect('mongodb://localhost:27017/BusRouteData')
+
+  mongoose.connect('mongodb://127.0.0.1:27017/BusRouteData')
+    .catch((err) => {
+      console.warn(err)
+    })
 
   router.use(express.json())
 

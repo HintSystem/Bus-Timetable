@@ -15,6 +15,11 @@ const devRoute = {
       name: 'Database',
       path: '',
       component: () => import('pages/dev/DatabasePage.vue')
+    },
+    {
+      name: 'Tracking',
+      path: 'track',
+      component: () => import('pages/dev/TrackingPage.vue')
     }
   ]
 }
