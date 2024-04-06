@@ -8,7 +8,7 @@
       />
       <q-separator />
       <q-card-actions align="right">
-        <q-btn color="primary" label="Set" @click="onOKClick" />
+        <q-btn color="primary" label="Set" @click="onDialogOK(coordinate)" />
       </q-card-actions>
     </q-card>
   </q-dialog>
@@ -18,7 +18,7 @@
 import { useDialogPluginComponent } from 'quasar'
 import { ref } from 'vue'
 
-import L from 'leaflet'
+import { Marker } from 'maplibre-gl'
 import BusMap from 'components/BusMap.vue'
 
 const props = defineProps({
@@ -37,17 +37,18 @@ const busMap = ref()
 let coordinate = props.location
 
 function onMapMount () {
-  const marker = L.marker(coordinate).addTo(busMap.value.map)
-  busMap.value.map.panTo(coordinate)
-  busMap.value.map.setZoom(17)
+  const map = busMap.value.map
+  const coords = [coordinate[1], coordinate[0]]
 
-  busMap.value.map.on('click', (e) => {
-    marker.setLatLng(e.latlng)
-    coordinate = [e.latlng.lat, e.latlng.lng]
+  const marker = new Marker().setLngLat(coords).addTo(map)
+  map.jumpTo({
+    zoom: 17,
+    center: coords
   })
-}
 
-function onOKClick () {
-  onDialogOK(coordinate)
+  map.on('click', (e) => {
+    marker.setLngLat(e.lngLat)
+    coordinate = [e.lngLat.lat, e.lngLat.lng]
+  })
 }
 </script>
