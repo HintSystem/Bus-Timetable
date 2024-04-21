@@ -73,20 +73,33 @@ function apiRoute () {
   return router
 }
 
-function setup () {
+function setup (app) {
   const express = require('express')
   const { createServer } = require('node:http')
 
-  const app = express()
-  app.disable('x-powered-by') //hide express
-  app.use('/api', apiRoute())
-
+  if (!app) { app = express() }
   const httpServer = createServer(app)
 
-  if (false) {
+  if (true) {
     const { Server } = require('socket.io')
-    const io = new Server(httpServer)
+    const io = new Server(httpServer, {
+      addTrailingSlash: false
+    })
+
+    const trackers = io.of('/track')
+
+    trackers.on('connection', (socket) => {
+      console.log('tracker connected', socket.id)
+
+      socket.on('location', (msg) => {
+        console.log(msg)
+        io.emit('location', msg)
+      })
+    })
   }
+
+  app.disable('x-powered-by')
+  app.use('/api', apiRoute())
 
   return { app, httpServer }
 }

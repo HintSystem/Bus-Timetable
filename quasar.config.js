@@ -28,7 +28,7 @@ module.exports = configure(function (/* ctx */) {
     // app boot file (/src/boot)
     // --> boot files are part of "main.js"
     // https://v2.quasar.dev/quasar-cli-vite/boot-files
-    boot: ['axios'],
+    boot: [],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#css
     css: ['app.scss'],
@@ -54,7 +54,7 @@ module.exports = configure(function (/* ctx */) {
         node: 'node18'
       },
 
-      afterDev: (params) => {
+      afterDev: () => {
         // run backend for dev
         const backend = require('./server/backend.js')
         const { httpServer } = backend.setup()
@@ -88,13 +88,20 @@ module.exports = configure(function (/* ctx */) {
 
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devServer
     devServer: {
-      // https: true
+      https: true,
       port: 3000,
-      open: true, // opens browser window automatically
+      open: false, // opens browser window automatically
 
       proxy: {
         // redirect to dev api/backend
-        '/api': 'http://localhost:' + devApiPort
+        '/api': {
+          target: 'http://localhost:' + devApiPort,
+          changeOrigin: true
+        },
+        '/socket.io': {
+          target: 'ws://localhost:' + devApiPort,
+          ws: true
+        }
       }
     },
 
@@ -113,7 +120,10 @@ module.exports = configure(function (/* ctx */) {
       // directives: [],
 
       // Quasar plugins
-      plugins: ['Dialog']
+      plugins: [
+        'Dialog',
+        'Notify'
+      ]
     },
 
     // animations: 'all', // --- includes all animations

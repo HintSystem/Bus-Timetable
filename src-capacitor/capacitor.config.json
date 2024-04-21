@@ -1,0 +1,8 @@
+{
+  "appId": "org.bustracker.app",
+  "appName": "Autobusu Saraksts",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}
