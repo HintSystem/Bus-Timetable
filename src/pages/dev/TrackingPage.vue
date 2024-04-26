@@ -72,7 +72,7 @@ function notifyError (opts) {
 }
 
 const ErrorCodes = ['PERMISSION_DENIED', 'POSITION_UNAVAILABLE', 'TIMEOUT']
-const socket = io('/track')
+const socket = io('/track', { autoConnect: false })
 
 function geolocationDict (coords) {
   return {
@@ -85,6 +85,7 @@ function geolocationDict (coords) {
 }
 
 function beginTracking () {
+  socket.connect()
   if (navigator.geolocation && watchId.value == null) {
     watchId.value = navigator.geolocation.watchPosition(
       (position) => {
@@ -98,6 +99,7 @@ function beginTracking () {
 }
 
 function stopTracking () {
+  socket.disconnect()
   if (watchId.value) {
     navigator.geolocation.clearWatch(watchId.value)
     watchId.value = null

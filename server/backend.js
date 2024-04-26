@@ -92,8 +92,12 @@ function setup (app) {
       console.log('tracker connected', socket.id)
 
       socket.on('location', (msg) => {
-        console.log(msg)
+        msg.id = socket.id
         io.emit('location', msg)
+      })
+
+      socket.on('disconnect', () => {
+        io.emit('tracker_disconnect', socket.id)
       })
     })
   }
