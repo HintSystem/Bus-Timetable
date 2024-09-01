@@ -14,7 +14,10 @@ npm install
 ```
 
 ### Start the app in development mode
-(hot-code reloading, error reporting, database editor and other dev tools on **'/dev'** page)
+
+> [!NOTE]
+> With developer mode you get access to:\
+> hot reloading, error reporting and some other tools on the **'/dev'** page
 
 ```bash
 yarn dev
@@ -22,13 +25,13 @@ yarn dev
 npm run dev
 ```
 
-### Lint the files
-
-```bash
-yarn lint
-# or
-npm run lint
-```
+> [!TIP]
+> To create an environment that only contains the **bus tracker** add `tracker` as the last argument.\
+> Example:
+> ```bash
+> npm run dev tracker
+> ```
+> This should also work when building the application
 
 ## Building
 

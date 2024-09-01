@@ -1,34 +1,42 @@
-const routes = [
-  {
+let routes = []
+
+if (process.env.APP_TYPE === 'tracker') {
+  routes = [{
+    path: '/',
+    component: () => import('layouts/dev/TrackerLayout.vue'),
+    children: [{ path: '', component: () => import('pages/dev/TrackingPage.vue') }]
+  }]
+} else {
+  routes = [{
     path: '/',
     component: () => import('layouts/MainLayout.vue'),
     children: [{ path: '', component: () => import('pages/IndexPage.vue') }]
-  }
-]
-
-// DEV only routes
-const devRoute = {
-  path: '/dev',
-  component: () => import('layouts/dev/DevLayout.vue'),
-  children: [
-    {
-      name: 'Database',
-      path: '',
-      component: () => import('pages/dev/DatabasePage.vue')
-    },
-    {
-      name: 'Tracking',
-      path: 'track',
-      component: () => import('pages/dev/TrackingPage.vue')
-    }
-  ]
+  }]
 }
+
+console.log('env', process.env)
+
+// Dev only routes, may also need authorization in the future
 if (process.env.DEV) {
-  routes.push(devRoute)
+  routes.push({
+    path: '/dev',
+    component: () => import('layouts/dev/DevLayout.vue'),
+    children: [
+      {
+        name: 'Database',
+        path: '',
+        component: () => import('pages/dev/DatabasePage.vue')
+      },
+      {
+        name: 'Tracking',
+        path: 'track',
+        component: () => import('pages/dev/TrackingPage.vue')
+      }
+    ]
+  })
 }
 
-// Always leave this as last one,
-// but you can also remove it
+// Redirect to error page
 routes.push({
   path: '/:catchAll(.*)*',
   component: () => import('pages/ErrorNotFound.vue')

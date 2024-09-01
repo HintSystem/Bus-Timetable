@@ -2,10 +2,12 @@
   <div
     ref="mapContainer"
     style="background-color: secondary; min-height: inherit; width: 100%"
-  />
+  >
+    <slot></slot>
+  </div>
 </template>
 
-<script>
+<script setup>
 import { onMounted, ref } from 'vue'
 import { Map as MapLibreMap, NavigationControl, Marker } from 'maplibre-gl'
 
@@ -24,64 +26,64 @@ function hslToHex (h, s, l) {
   return `#${f(0)}${f(8)}${f(4)}`
 }
 
-export default {
-  setup () {
-    const mapContainer = ref()
-    const map = ref()
+const emit = defineEmits(['mapMounted', 'mapLoaded'])
 
-    const socket = io()
+const mapContainer = ref()
+const map = ref()
 
-    onMounted(() => {
-      map.value = new MapLibreMap({
-        container: mapContainer.value,
-        center: mapCenter,
-        minZoom: 13,
-        maxZoom: 19
-      })
-        .addSource('osm', {
-          type: 'raster',
-          tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-          tileSize: 256,
-          attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        })
-        .addLayer({
-          id: 'canvas',
-          type: 'raster',
-          source: 'osm'
-        })
-        .addControl(new NavigationControl(), 'top-right')
+const socket = io()
 
-      const Markers = new Map()
-
-      socket.on('location', (msg) => {
-        console.log(msg)
-
-        let LocationMarker = Markers.get(msg.id)
-        if (!LocationMarker) {
-          LocationMarker = new Marker({
-            color: hslToHex((parseInt(msg.id, 36) % 720) / 2, 80, 60)
-          }).setLngLat([0, 0]).addTo(map.value)
-          Markers.set(msg.id, LocationMarker)
-        }
-
-        LocationMarker.setLngLat([msg.longitude, msg.latitude])
-      })
-
-      socket.on('tracker_disconnect', (msg) => {
-        const Marker = Markers.get(msg)
-        if (Marker) {
-          Marker.remove()
-          Markers.delete(msg)
-        }
-      })
+onMounted(() => {
+  map.value = new MapLibreMap({
+    container: mapContainer.value,
+    center: mapCenter,
+    minZoom: 13,
+    maxZoom: 19
+  })
+    .addSource('osm', {
+      type: 'raster',
+      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     })
+    .addLayer({
+      id: 'canvas',
+      type: 'raster',
+      source: 'osm'
+    })
+    .addControl(new NavigationControl(), 'top-right')
 
-    return {
-      mapContainer,
-      map
+  emit('mapMounted')
+  map.value.on('load', () => { emit('mapLoaded', map) })
+
+  const TrackerMarkers = new Map()
+
+  socket.on('location', (msg) => {
+    console.log(msg)
+
+    let LocationMarker = TrackerMarkers.get(msg.id)
+    if (!LocationMarker) {
+      const hue = (parseInt(msg.id, 36) % 720) / 2
+
+      LocationMarker = new Marker({
+        color: hslToHex(hue, 80, 60)
+      }).setLngLat([0, 0]).addTo(map.value)
+
+      TrackerMarkers.set(msg.id, LocationMarker)
     }
-  }
-}
+
+    LocationMarker.setLngLat([msg.longitude, msg.latitude])
+  })
+
+  socket.on('tracker_disconnect', (msg) => {
+    const Marker = TrackerMarkers.get(msg)
+    if (Marker) {
+      Marker.remove()
+      TrackerMarkers.delete(msg)
+    }
+  })
+})
+
 </script>
 
 <style src="maplibre-gl/dist/maplibre-gl.css"/>

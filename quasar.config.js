@@ -9,9 +9,15 @@
 // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js
 
 const { configure } = require('quasar/wrappers')
+
 const devApiPort = 4000
+const isTrackerBuild = process.argv.find((v, i) => {
+  return v.toLowerCase() === 'tracker' && i > 1
+})
 
 module.exports = configure(function (/* ctx */) {
+  console.log(isTrackerBuild)
+
   return {
     eslint: {
       // fix: true,
@@ -52,6 +58,10 @@ module.exports = configure(function (/* ctx */) {
       target: {
         browser: ['es2019', 'edge88', 'firefox78', 'chrome87', 'safari13.1'],
         node: 'node18'
+      },
+
+      env: {
+        APP_TYPE: isTrackerBuild ? 'tracker' : 'full'
       },
 
       afterDev: () => {
@@ -122,7 +132,8 @@ module.exports = configure(function (/* ctx */) {
       // Quasar plugins
       plugins: [
         'Dialog',
-        'Notify'
+        'Notify',
+        'LocalStorage'
       ]
     },
 
