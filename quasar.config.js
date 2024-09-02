@@ -16,8 +16,6 @@ const isTrackerBuild = process.argv.find((v, i) => {
 })
 
 module.exports = configure(function (/* ctx */) {
-  console.log(isTrackerBuild)
-
   return {
     eslint: {
       // fix: true,

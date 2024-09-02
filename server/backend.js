@@ -86,9 +86,8 @@ function setup (app) {
       addTrailingSlash: false
     })
 
-    const trackers = io.of('/track')
-
-    trackers.on('connection', (socket) => {
+    // Needs authorization or some kind of check so not anyone can just submit tracking information
+    io.of('/trackers').on('connection', (socket) => {
       console.log('tracker connected', socket.id)
 
       socket.on('location', (msg) => {

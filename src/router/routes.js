@@ -14,8 +14,6 @@ if (process.env.APP_TYPE === 'tracker') {
   }]
 }
 
-console.log('env', process.env)
-
 // Dev only routes, may also need authorization in the future
 if (process.env.DEV) {
   routes.push({

@@ -9,11 +9,10 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
-import { Map as MapLibreMap, NavigationControl, Marker } from 'maplibre-gl'
-
-import { mapCenter } from './constants'
-
 import { io } from 'socket.io-client'
+
+import { Map as MapLibreMap, NavigationControl, Marker } from 'maplibre-gl'
+import { mapCenter } from './constants'
 
 function hslToHex (h, s, l) {
   l /= 100
@@ -27,11 +26,12 @@ function hslToHex (h, s, l) {
 }
 
 const emit = defineEmits(['mapMounted', 'mapLoaded'])
+const props = defineProps({
+  idBlacklist: String
+})
 
 const mapContainer = ref()
 const map = ref()
-
-const socket = io()
 
 onMounted(() => {
   map.value = new MapLibreMap({
@@ -53,13 +53,15 @@ onMounted(() => {
     })
     .addControl(new NavigationControl(), 'top-right')
 
-  emit('mapMounted')
+  emit('mapMounted', map)
   map.value.on('load', () => { emit('mapLoaded', map) })
 
   const TrackerMarkers = new Map()
+  const socket = io()
 
   socket.on('location', (msg) => {
-    console.log(msg)
+    if (msg.id === props.idBlacklist) return
+    console.log('tracker location:', msg)
 
     let LocationMarker = TrackerMarkers.get(msg.id)
     if (!LocationMarker) {

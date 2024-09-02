@@ -48,8 +48,8 @@
     </div>
     <BusMap
       class="col"
-      ref="busMap"
       style="min-height: none; border-radius: 6px"
+      :id-blacklist="trackerId"
       @map-loaded="mapLoaded"
     >
       <div
@@ -68,7 +68,7 @@
 </template>
 
 <script setup>
-import { ref, shallowRef, triggerRef, watchEffect, watch } from 'vue'
+import { ref, shallowRef, triggerRef, watch } from 'vue'
 import { useQuasar, Notify, LocalStorage, copyToClipboard, exportFile } from 'quasar'
 
 import { Marker } from 'maplibre-gl'
@@ -85,9 +85,12 @@ const LoggedPositions = shallowRef(LocalStorage.getItem('LoggedPositions') || []
 const Location = ref()
 const LoadingPosition = ref(false)
 const watchId = ref(null)
+const trackerId = ref(null)
 
-const busMap = ref()
-const marker = new Marker()
+let busMap = null
+const marker = new Marker({
+  subpixelPositioning: true
+})
 
 function trackingError (opts) {
   Notify.create({
@@ -110,41 +113,34 @@ function copyLocation () {
 function moveMarker (coords) {
   marker.setLngLat(coords)
 
-  if (!marker._map) {
-    const map = busMap.value.map
-
-    marker.addTo(map)
-    map.panTo(coords)
+  if (!marker._map && busMap.value) {
+    marker.addTo(busMap.value)
+    busMap.value.panTo(coords)
   }
 }
 
-watchEffect(() => {
-  if (!Location.value) return
-  moveMarker([Location.value.longitude, Location.value.latitude])
-})
-
 function mapLoaded (map) {
+  busMap = map
+
   watch(LoggedPositions, () => {
-    const geoJSON = {
-      type: 'geojson',
-      data: {
-        type: 'Feature',
-        properties: {},
-        geometry: {
-          type: 'LineString',
-          coordinates: LoggedPositions.value.map(({ latitude, longitude }) => [longitude, latitude])
-        }
+    const geoJSONData = {
+      type: 'Feature',
+      properties: {},
+      geometry: {
+        type: 'LineString',
+        coordinates: LoggedPositions.value.map(({ latitude, longitude }) => [longitude, latitude])
       }
     }
 
-    console.log(geoJSON)
-
     const lineSource = map.value.getSource('TrackingLog')
     if (lineSource) {
-      lineSource.setData(geoJSON)
+      lineSource.setData(geoJSONData)
     } else {
-      console.log('new source')
-      map.value.addSource('TrackingLog', geoJSON)
+      map.value
+        .addSource('TrackingLog', {
+          type: 'geojson',
+          data: geoJSONData
+        })
         .addLayer({
           id: 'TrackingPath',
           type: 'line',
@@ -172,7 +168,7 @@ function mapLoaded (map) {
 // Logging implementation
 
 function logPosition (position) {
-  if (!LoggingEnabled.value) return
+  if (LoggingEnabled.value !== true) return
 
   LoggedPositions.value.push(position)
   triggerRef(LoggedPositions)
@@ -182,6 +178,7 @@ function logPosition (position) {
 
 function clearLogs () {
   LoggedPositions.value = []
+
   LocalStorage.removeItem('LoggedPositions')
 }
 
@@ -203,13 +200,14 @@ function importLogFile () {
     try {
       const jsonObject = JSON.parse(event.target.result)
       LoggedPositions.value = jsonObject
-      console.log(LoggedPositions.value)
+
+      LocalStorage.setItem('LoggedPositions', jsonObject)
     } catch (error) {
       console.error('Error parsing JSON: ' + error.message)
     }
   }
-
   reader.onerror = () => { console.error('Error reading file.') }
+
   reader.readAsText(file)
 }
 
@@ -234,6 +232,12 @@ function confirmLogImport () {
 
 // Tracking functions
 
+const socket = io('/trackers', { autoConnect: false })
+
+socket.on('connect', () => {
+  trackerId.value = socket.id
+})
+
 function geolocationDict (position) {
   const coords = position.coords
   return {
@@ -247,8 +251,6 @@ function geolocationDict (position) {
 }
 
 const ErrorCodes = ['PERMISSION_DENIED', 'POSITION_UNAVAILABLE', 'TIMEOUT']
-const socket = io('/track', { autoConnect: false })
-
 function beginTracking () {
   LoadingPosition.value = true
   socket.connect()
@@ -257,12 +259,13 @@ function beginTracking () {
     watchId.value = navigator.geolocation.watchPosition(
       (position) => {
         LoadingPosition.value = false
-
         Location.value = position.coords
-        const dict = geolocationDict(position)
-        socket.emit('location', dict)
 
-        logPosition(dict)
+        moveMarker([position.coords.longitude, position.coords.latitude])
+
+        const posLogData = geolocationDict(position)
+        socket.emit('location', posLogData)
+        logPosition(posLogData)
       },
       (error) => {
         trackingError({ message: error.message, caption: ErrorCodes[error.code + 1] })
@@ -274,7 +277,11 @@ function beginTracking () {
 
 function stopTracking () {
   LoadingPosition.value = false
+  marker.remove()
+
   socket.disconnect()
+  trackerId.value = null
+
   if (watchId.value) {
     navigator.geolocation.clearWatch(watchId.value)
     watchId.value = null
