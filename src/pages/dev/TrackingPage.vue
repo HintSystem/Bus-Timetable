@@ -70,6 +70,16 @@
 <script setup>
 import { ref, shallowRef, triggerRef, watch } from 'vue'
 import { useQuasar, Notify, LocalStorage, copyToClipboard, exportFile } from 'quasar'
+import { Capacitor } from '@capacitor/core'
+
+let Geolocation
+if (Capacitor.isNativePlatform()) {
+  import('@capacitor/geolocation').then((Module) => {
+    Geolocation = Module.Geolocation
+  })
+} else {
+  Geolocation = navigator.geolocation
+}
 
 import { Marker } from 'maplibre-gl'
 import BusMap from 'src/components/BusMap.vue'
@@ -251,12 +261,21 @@ function geolocationDict (position) {
 }
 
 const ErrorCodes = ['PERMISSION_DENIED', 'POSITION_UNAVAILABLE', 'TIMEOUT']
-function beginTracking () {
+async function beginTracking () {
   LoadingPosition.value = true
   socket.connect()
 
-  if (navigator.geolocation && watchId.value == null) {
-    watchId.value = navigator.geolocation.watchPosition(
+  if (Capacitor.isNativePlatform()) {
+    let permissionFailed = false
+    await Geolocation.requestPermissions({ permissions: ['location'] }).catch(() => {
+      permissionFailed = true
+      trackingError({ message: 'Location service is disabled', caption: ErrorCodes[0] })
+    })
+    if (permissionFailed) return stopTracking()
+  }
+
+  if (Geolocation && watchId.value == null) {
+    watchId.value = Geolocation.watchPosition(
       (position) => {
         LoadingPosition.value = false
         Location.value = position.coords
@@ -283,7 +302,11 @@ function stopTracking () {
   trackerId.value = null
 
   if (watchId.value) {
-    navigator.geolocation.clearWatch(watchId.value)
+    if (Capacitor.isNativePlatform()) {
+      Geolocation.clearWatch({ id: watchId.value }) // Capacitor api requires an option instead
+    } else {
+      Geolocation.clearWatch(watchId.value)
+    }
     watchId.value = null
   }
 }

@@ -9,6 +9,7 @@
 // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js
 
 const { configure } = require('quasar/wrappers')
+const path = require('node:path')
 
 const devApiPort = 4000
 const isTrackerBuild = process.argv.find((v, i) => {
@@ -68,6 +69,10 @@ module.exports = configure(function (/* ctx */) {
         const { httpServer } = backend.setup()
 
         httpServer.listen(devApiPort)
+      },
+
+      alias: {
+        '@capacitor': path.resolve(__dirname, 'src-capacitor/node_modules/@capacitor')
       },
 
       vueRouterMode: 'history' // available values: 'hash', 'history'
@@ -186,14 +191,14 @@ module.exports = configure(function (/* ctx */) {
       // extendPWACustomSWConf (esbuildConf) {}
     },
 
-    // Full list of options: https://v2.quasar.dev/quasar-cli-vite/developing-cordova-apps/configuring-cordova
-    cordova: {
-      // noIosLegacyBuildFlag: true, // uncomment only if you know what you are doing
-    },
-
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/developing-capacitor-apps/configuring-capacitor
     capacitor: {
       hideSplashscreen: true
+    },
+
+    // Full list of options: https://v2.quasar.dev/quasar-cli-vite/developing-cordova-apps/configuring-cordova
+    cordova: {
+      // noIosLegacyBuildFlag: true, // uncomment only if you know what you are doing
     },
 
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/developing-electron-apps/configuring-electron
