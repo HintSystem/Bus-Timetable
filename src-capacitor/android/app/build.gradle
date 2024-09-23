@@ -20,6 +20,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+          signingConfig signingConfigs.debug
         }
     }
 
@@ -31,6 +32,8 @@ android {
       tracker {
         dimension "versions"
         applicationIdSuffix ".tracker"
+        resValue "string", "app_name", "Autobusu Izsekotājs"
+        resValue "string", "title_activity_main", "Autobusu Izsekotājs"
       }
     }
 }

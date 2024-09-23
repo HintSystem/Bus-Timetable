@@ -12,9 +12,12 @@ const { configure } = require('quasar/wrappers')
 const path = require('node:path')
 
 const devApiPort = 4000
-const isTrackerBuild = process.argv.find((v, i) => {
-  return v.toLowerCase() === 'tracker' && i > 1
-})
+let isTrackerBuild = false
+for (let i = 0; i < process.argv.length; i++) {
+  if (process.argv[i] === '-tracker' && i > 1) {
+    isTrackerBuild = true
+  }
+}
 
 module.exports = configure(function (/* ctx */) {
   return {
