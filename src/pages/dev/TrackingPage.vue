@@ -1,51 +1,92 @@
 <template>
   <q-page padding class="column">
-    <div class="row" style="padding-bottom: 1rem; gap: 0.5rem; max-height: 4rem;">
+    <div class="row justify-center q-pb-md" style="gap: 0.5rem">
       <q-btn
+        @click='watchId ? stopTracking() : beginTracking()'
         :label='watchId ? "Stop tracking" : "Start tracking"'
         :color='watchId ? "negative" : "positive"'
-        @click='watchId ? stopTracking() : beginTracking()'
         size="1rem"
         rounded
         no-caps
       >
         <q-spinner-radio v-if="LoadingPosition" style="margin-left: 0.4em;" ></q-spinner-radio>
       </q-btn>
-      <div class="row" style="margin-left: auto; gap: 0.5rem">
-        <q-checkbox v-model="LoggingEnabled" label="Log location"/>
-        <q-btn
-          @click="saveLogsToFile"
-          icon="save"
-          v-show="LoggingEnabled && LoggedPositions.length > 0"
-          :label="'(' + LoggedPositions.length + ')'"
-        >
-          <q-tooltip>Save logs to JSON</q-tooltip>
-        </q-btn>
-        <q-file
-          v-model="LogFile"
-          @update:model-value="confirmLogImport"
-          v-show="LoggingEnabled"
-          accept="application/json"
-          standout
-          dense
-        >
-          <template v-slot:prepend>
-            <q-icon name="upload_file"/>
-          </template>
-          <q-tooltip>Upload JSON location logs</q-tooltip>
-        </q-file>
-        <q-btn
-          @click="clearLogs"
-          v-show="LoggedPositions.length > 0"
-          color="negative"
-          icon="delete"
-          padding="0.5rem"
-          flat
-        >
-          <q-tooltip>Clear location logs</q-tooltip>
-        </q-btn>
-      </div>
+      <q-btn
+        @click="SettingsVisible = true"
+        icon="settings"
+        round
+      />
     </div>
+
+    <q-dialog v-model="SettingsVisible">
+      <q-card>
+        <q-card-section>
+          <div class="text-h6">Settings</div>
+        </q-card-section>
+
+        <q-separator inset/>
+        <q-item-label header>Debug</q-item-label>
+
+        <q-item tag="label">
+          <q-item-section>Show location log path</q-item-section>
+          <q-item-section avatar>
+            <q-checkbox v-model="Settings.ShowLogPath"/>
+          </q-item-section>
+        </q-item>
+
+        <q-separator inset/>
+        <q-item-label header>Logging</q-item-label>
+
+        <q-item tag="label">
+          <q-item-section>Enable location logging</q-item-section>
+          <q-item-section avatar>
+            <q-checkbox v-model="Settings.LoggingEnabled"/>
+          </q-item-section>
+        </q-item>
+
+        <q-item tag="label">
+          <q-item-section>Import logs from JSON</q-item-section>
+          <q-item-section avatar>
+            <q-file
+              v-model="LogFile"
+              @update:model-value="confirmLogImport"
+              :style="[LogFile ? {} : {'width': '100px'}]"
+              accept="application/json"
+              standout
+              dense
+            >
+              <template v-slot:prepend>
+                <q-icon name="upload_file"/>
+              </template>
+            </q-file>
+          </q-item-section>
+        </q-item>
+
+        <q-item tag="label" v-show="LoggedPositions.length > 0">
+          <q-item-section>Save logs to JSON</q-item-section>
+          <q-item-section avatar>
+            <q-btn
+              @click="saveLogsToFile"
+              icon="save"
+              :label="'(' + LoggedPositions.length + ')'"
+            />
+          </q-item-section>
+        </q-item>
+
+        <q-item tag="label" v-show="LoggedPositions.length > 0">
+          <q-item-section>Clear location logs</q-item-section>
+          <q-item-section avatar>
+            <q-btn
+              @click="clearLogs"
+              color="negative"
+              icon="delete"
+              padding="0.5rem"
+              flat
+            />
+          </q-item-section>
+        </q-item>
+      </q-card>
+    </q-dialog>
     <BusMap
       class="col"
       style="min-height: none; border-radius: 6px"
@@ -70,16 +111,9 @@
 <script setup>
 import { ref, shallowRef, triggerRef, watch } from 'vue'
 import { useQuasar, Notify, LocalStorage, copyToClipboard, exportFile } from 'quasar'
-import { Capacitor } from '@capacitor/core'
 
-let Geolocation
-if (Capacitor.isNativePlatform()) {
-  import('@capacitor/geolocation').then((Module) => {
-    Geolocation = Module.Geolocation
-  })
-} else {
-  Geolocation = navigator.geolocation
-}
+import { Capacitor, registerPlugin } from '@capacitor/core'
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem'
 
 import { Marker } from 'maplibre-gl'
 import BusMap from 'src/components/BusMap.vue'
@@ -88,7 +122,13 @@ import { io } from 'socket.io-client'
 
 const $q = useQuasar()
 
-const LoggingEnabled = ref(false)
+const SettingsVisible = ref(false)
+
+const Settings = ref({
+  ShowLogPath: true,
+  LoggingEnabled: false
+})
+
 const LogFile = ref(null)
 const LoggedPositions = shallowRef(LocalStorage.getItem('LoggedPositions') || [])
 
@@ -102,20 +142,10 @@ const marker = new Marker({
   subpixelPositioning: true
 })
 
-function trackingError (opts) {
-  Notify.create({
-    progress: true,
-    position: 'bottom-right',
-    color: 'negative',
-    icon: 'error',
-    ...opts
-  })
-}
-
 function copyLocation () {
   copyToClipboard(Location.value.latitude + ', ' + Location.value.longitude)
   Notify.create({
-    color: 'positive',
+    type: 'positive',
     message: 'Copied coordinates!'
   })
 }
@@ -131,6 +161,12 @@ function moveMarker (coords) {
 
 function mapLoaded (map) {
   busMap = map
+
+  watch(Settings.value, () => {
+    const value = Settings.value.ShowLogPath ? 'visible' : 'none'
+    map.value.setLayoutProperty('TrackingPath', 'visibility', value)
+    map.value.setLayoutProperty('TrackingPoints', 'visibility', value)
+  })
 
   watch(LoggedPositions, () => {
     const geoJSONData = {
@@ -155,6 +191,9 @@ function mapLoaded (map) {
           id: 'TrackingPath',
           type: 'line',
           source: 'TrackingLog',
+          layout: {
+            visibility: 'visible'
+          },
           paint: {
             'line-color': 'limegreen',
             'line-width': 6,
@@ -165,6 +204,9 @@ function mapLoaded (map) {
           id: 'TrackingPoints',
           type: 'circle',
           source: 'TrackingLog',
+          layout: {
+            visibility: 'visible'
+          },
           paint: {
             'circle-color': 'black',
             'circle-radius': 3,
@@ -178,7 +220,7 @@ function mapLoaded (map) {
 // Logging implementation
 
 function logPosition (position) {
-  if (LoggingEnabled.value !== true) return
+  if (Settings.value.LoggingEnabled !== true) return
 
   LoggedPositions.value.push(position)
   triggerRef(LoggedPositions)
@@ -187,13 +229,57 @@ function logPosition (position) {
 }
 
 function clearLogs () {
+  LogFile.value = null
   LoggedPositions.value = []
 
   LocalStorage.removeItem('LoggedPositions')
 }
 
-function saveLogsToFile () {
-  exportFile('GPS_Logs.json', JSON.stringify(LoggedPositions.value, null, '\t'))
+async function getNumberedName (fileName) {
+  const files = (await Filesystem.readdir({
+    path: '',
+    directory: Directory.Documents
+  })).files
+  if (!files) { return fileName }
+
+  const name = fileName.slice(0, fileName.lastIndexOf('.'))
+  const ext = fileName.slice(fileName.lastIndexOf('.'))
+  let iters = 1
+  let numberedName = fileName
+
+  while (true) {
+    if (!files.some(item => item.name === numberedName)) { return numberedName }
+    iters++
+    numberedName = `${name}_${iters}${ext}`
+  }
+}
+
+async function saveLogsToFile () {
+  const fileName = 'GPS_Logs.json'
+  const data = JSON.stringify(LoggedPositions.value, null, '\t')
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await Filesystem.requestPermissions()
+      const numberedName = await getNumberedName(fileName)
+      Filesystem.writeFile({
+        path: numberedName,
+        data,
+        encoding: Encoding.UTF8,
+        directory: Directory.Documents
+      }).then((file) => {
+        Notify.create({
+          type: 'positive',
+          message: `Saved logs to - ${numberedName}`,
+          caption: file.uri
+        })
+      })
+    } catch (err) {
+      Notify.create({ type: 'error', message: err.message })
+    }
+  } else {
+    exportFile(fileName, data)
+  }
 }
 
 function importLogFile () {
@@ -224,10 +310,10 @@ function importLogFile () {
 function confirmLogImport () {
   if (LoggedPositions.value.length > 0) {
     $q.dialog({
-      title: 'Are you sure?',
+      title: 'Replace logs with file?',
       message: "You are about to <span class='text-negative'><strong>permanently delete</strong></span> and replace all existing logs with this newly imported file.",
       html: true,
-      ok: { color: 'negative', label: 'Yes I am sure', 'no-caps': true },
+      ok: { color: 'negative', label: 'Delete Logs', 'no-caps': true },
       cancel: true,
       persistent: true
     }).onCancel(() => {
@@ -248,16 +334,25 @@ socket.on('connect', () => {
   trackerId.value = socket.id
 })
 
-function geolocationDict (position) {
-  const coords = position.coords
-  return {
-    timestamp: position.timestamp,
-    latitude: coords.latitude,
-    longitude: coords.longitude,
-    altitude: coords.altitude,
-    speed: coords.speed,
-    accuracy: coords.accuracy
-  }
+function updatePos (position) {
+  LoadingPosition.value = false
+  Location.value = position
+
+  moveMarker([position.longitude, position.latitude])
+
+  socket.emit('location', position)
+  logPosition(position)
+}
+
+let Geolocation
+let BackgroundGPS
+if (Capacitor.isNativePlatform()) {
+  BackgroundGPS = registerPlugin('BackgroundGeolocation')
+  import('@capacitor/geolocation').then((Module) => {
+    Geolocation = Module.Geolocation
+  })
+} else {
+  Geolocation = navigator.geolocation
 }
 
 const ErrorCodes = ['PERMISSION_DENIED', 'POSITION_UNAVAILABLE', 'TIMEOUT']
@@ -266,28 +361,43 @@ async function beginTracking () {
   socket.connect()
 
   if (Capacitor.isNativePlatform()) {
-    let permissionFailed = false
-    await Geolocation.requestPermissions({ permissions: ['location'] }).catch(() => {
-      permissionFailed = true
-      trackingError({ message: 'Location service is disabled', caption: ErrorCodes[0] })
+    BackgroundGPS.addWatcher({
+      backgroundTitle: 'Autobuss tiek izsekots',
+      backgroundMessage: 'Aizver aplikāciju lai izslēgtu',
+      requestPermissions: true
+    }, (position, error) => {
+      if (error) {
+        return Notify.create({ type: 'error', caption: error.code })
+      }
+      updatePos({
+        time: position.time,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        altitude: position.altitude,
+        speed: position.speed,
+        accuracy: position.accuracy
+      })
+    }).then((id) => {
+      watchId.value = id
     })
-    if (permissionFailed) return stopTracking()
+    return
   }
 
   if (Geolocation && watchId.value == null) {
-    watchId.value = Geolocation.watchPosition(
+    watchId.value = await Geolocation.watchPosition(
       (position) => {
-        LoadingPosition.value = false
-        Location.value = position.coords
-
-        moveMarker([position.coords.longitude, position.coords.latitude])
-
-        const posLogData = geolocationDict(position)
-        socket.emit('location', posLogData)
-        logPosition(posLogData)
+        const coords = position.coords
+        updatePos({
+          time: position.timestamp,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          altitude: coords.altitude,
+          speed: coords.speed,
+          accuracy: coords.accuracy
+        })
       },
       (error) => {
-        trackingError({ message: error.message, caption: ErrorCodes[error.code + 1] })
+        Notify.create({ type: 'error', message: error.message, caption: ErrorCodes[error.code + 1] })
       },
       { enableHighAccuracy: true }
     )
@@ -303,7 +413,7 @@ function stopTracking () {
 
   if (watchId.value) {
     if (Capacitor.isNativePlatform()) {
-      Geolocation.clearWatch({ id: watchId.value }) // Capacitor api requires an option instead
+      BackgroundGPS.removeWatcher({ id: watchId.value })
     } else {
       Geolocation.clearWatch(watchId.value)
     }

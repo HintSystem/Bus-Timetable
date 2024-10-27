@@ -36,7 +36,7 @@ module.exports = configure(function (/* ctx */) {
     // app boot file (/src/boot)
     // --> boot files are part of "main.js"
     // https://v2.quasar.dev/quasar-cli-vite/boot-files
-    boot: [],
+    boot: ['Notify'],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#css
     css: ['app.scss'],
@@ -75,7 +75,8 @@ module.exports = configure(function (/* ctx */) {
       },
 
       alias: {
-        '@capacitor': path.resolve(__dirname, 'src-capacitor/node_modules/@capacitor')
+        '@capacitor': path.resolve(__dirname, 'src-capacitor/node_modules/@capacitor'),
+        '@capacitor-community': path.resolve(__dirname, 'src-capacitor/node_modules/@capacitor-community')
       },
 
       vueRouterMode: 'history' // available values: 'hash', 'history'

@@ -4,6 +4,6 @@
   "webDir": "www",
   "server": {
     "androidScheme": "https",
-    "url": "https://192.168.1.100:3000"
+    "useLegacyBridge": true
   }
 }
