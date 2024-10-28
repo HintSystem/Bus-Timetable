@@ -15,7 +15,7 @@ function errBadJSON(res, propertyName, info) {
   res.status(400).json( { message: msg } )
 }
 
-export function apiRoute () {
+export function databaseRoutes () {
   const router = express.Router()
 
   function setModelRoutes (path, dataModel) {
@@ -79,28 +79,29 @@ export function setup (app) {
   if (!app) { app = express() }
   const httpServer = createServer(app)
 
+  const router = databaseRoutes()
+
   if (true) {
     const io = new Server(httpServer, {
       addTrailingSlash: false
     })
 
-    // Needs authorization or some kind of check so not anyone can just submit tracking information
-    io.of('/trackers').on('connection', (socket) => {
-      console.log('tracker connected', socket.id)
+    router.route('/trackers').post(expectJSON, async (req, res, next) => {
+      if (!('id' in req.body)) {
+        errBadJSON(res, 'id')
+        return
+      }
+      if (!('position' in req.body)) {
+        errBadJSON(res, 'id')
+        return
+      }
 
-      socket.on('location', (msg) => {
-        msg.id = socket.id
-        io.emit('location', msg)
-      })
-
-      socket.on('disconnect', () => {
-        io.emit('tracker_disconnect', socket.id)
-      })
+      io.emit('location', req.body)
     })
   }
 
   app.disable('x-powered-by')
-  app.use('/api', apiRoute())
+  app.use('/api', router)
 
   return { app, httpServer }
 }

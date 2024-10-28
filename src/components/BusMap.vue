@@ -75,7 +75,7 @@ onMounted(() => {
       TrackerMarkers.set(msg.id, LocationMarker)
     }
 
-    LocationMarker.setLngLat([msg.longitude, msg.latitude])
+    LocationMarker.setLngLat([msg.position.longitude, msg.position.latitude])
   })
 
   socket.on('tracker_disconnect', (msg) => {

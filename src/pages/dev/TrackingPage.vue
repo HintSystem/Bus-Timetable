@@ -112,13 +112,14 @@
 import { ref, shallowRef, triggerRef, watch } from 'vue'
 import { useQuasar, Notify, LocalStorage, copyToClipboard, exportFile } from 'quasar'
 
-import { Capacitor, registerPlugin } from '@capacitor/core'
+import { Capacitor, CapacitorHttp, registerPlugin } from '@capacitor/core'
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem'
 
 import { Marker } from 'maplibre-gl'
 import BusMap from 'src/components/BusMap.vue'
 
-import { io } from 'socket.io-client'
+import axios from 'axios'
+import { apiServers } from 'components/constants'
 
 const $q = useQuasar()
 
@@ -135,7 +136,7 @@ const LoggedPositions = shallowRef(LocalStorage.getItem('LoggedPositions') || []
 const Location = ref()
 const LoadingPosition = ref(false)
 const watchId = ref(null)
-const trackerId = ref(null)
+const trackerId = ref(crypto.randomUUID())
 
 let busMap = null
 const marker = new Marker({
@@ -328,19 +329,32 @@ function confirmLogImport () {
 
 // Tracking functions
 
-const socket = io('/trackers', { autoConnect: false })
-
-socket.on('connect', () => {
-  trackerId.value = socket.id
-})
-
 function updatePos (position) {
   LoadingPosition.value = false
   Location.value = position
 
   moveMarker([position.longitude, position.latitude])
 
-  socket.emit('location', position)
+  const postData = { id: trackerId.value, position }
+  if (Capacitor.isNativePlatform()) {
+    CapacitorHttp.post({
+      url: apiServers[0] + '/api/trackers',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      data: postData,
+      connectTimeout: 5000
+    })
+      .then((res) => {
+        Notify.create({ type: 'positive', message: `status: ${res.status}, ${JSON.stringify(res.data)}` })
+      })
+      .catch((err) => {
+        Notify.create({ type: 'error', message: err.message })
+      })
+  } else {
+    axios.post('/api/trackers', postData).catch((err) => { Notify.create({ type: 'error', message: err.message }) })
+  }
+
   logPosition(position)
 }
 
@@ -358,7 +372,6 @@ if (Capacitor.isNativePlatform()) {
 const ErrorCodes = ['PERMISSION_DENIED', 'POSITION_UNAVAILABLE', 'TIMEOUT']
 async function beginTracking () {
   LoadingPosition.value = true
-  socket.connect()
 
   if (Capacitor.isNativePlatform()) {
     BackgroundGPS.addWatcher({
@@ -407,9 +420,6 @@ async function beginTracking () {
 function stopTracking () {
   LoadingPosition.value = false
   marker.remove()
-
-  socket.disconnect()
-  trackerId.value = null
 
   if (watchId.value) {
     if (Capacitor.isNativePlatform()) {
