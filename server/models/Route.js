@@ -1,4 +1,4 @@
-const mongoose = require('mongoose')
+import mongoose from 'mongoose'
 
 const RouteSchema = new mongoose.Schema({
   name: String,
@@ -6,4 +6,4 @@ const RouteSchema = new mongoose.Schema({
   outbound: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Stop' }]
 })
 
-module.exports = mongoose.model('Route', RouteSchema, 'Routes')
+export default mongoose.model('Route', RouteSchema, 'Routes')

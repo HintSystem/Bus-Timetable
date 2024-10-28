@@ -1,15 +1,10 @@
 /* eslint-env node */
 
-/*
- * This file runs in a Node context (it's NOT transpiled by Babel), so use only
- * the ES6 features that are supported by your Node version. https://node.green/
- */
-
 // Configuration for your app
 // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js
 
-const { configure } = require('quasar/wrappers')
-const path = require('node:path')
+import { configure } from 'quasar/wrappers'
+import path from 'node:path'
 
 const devApiPort = 4000
 let isTrackerBuild = false
@@ -19,7 +14,7 @@ for (let i = 0; i < process.argv.length; i++) {
   }
 }
 
-module.exports = configure(function (/* ctx */) {
+export default configure((/* ctx */) => {
   return {
     eslint: {
       // fix: true,

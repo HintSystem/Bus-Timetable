@@ -1,17 +1,21 @@
+import mongoose from 'mongoose'
+import express from 'express'
+import { createServer } from 'node:http'
+import { Server } from 'socket.io'
+
 function expectJSON (req, res, next) {
   for(const i in req.body) return next()
   res.status(400).json({message: 'No JSON body was provided.'})
 }
 
 function errBadJSON(res, propertyName, info) {
-  const msg = 'JSON property of `' + propertyName + '` does not exist.'
+  let msg = 'JSON property of `' + propertyName + '` does not exist.'
 
   if (info !== undefined) msg += ' ' + info
   res.status(400).json( { message: msg } )
 }
 
-function apiRoute () {
-  const express = require('express')
+export function apiRoute () {
   const router = express.Router()
 
   function setModelRoutes (path, dataModel) {
@@ -58,8 +62,6 @@ function apiRoute () {
     })
   }
 
-  const mongoose = require('mongoose')
-
   mongoose.connect('mongodb://127.0.0.1:27017/BusRouteData')
     .catch((err) => {
       console.warn(err)
@@ -73,15 +75,11 @@ function apiRoute () {
   return router
 }
 
-function setup (app) {
-  const express = require('express')
-  const { createServer } = require('node:http')
-
+export function setup (app) {
   if (!app) { app = express() }
   const httpServer = createServer(app)
 
   if (true) {
-    const { Server } = require('socket.io')
     const io = new Server(httpServer, {
       addTrailingSlash: false
     })
@@ -106,5 +104,3 @@ function setup (app) {
 
   return { app, httpServer }
 }
-
-module.exports = { apiRoute, setup }

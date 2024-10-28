@@ -1,4 +1,4 @@
-const mongoose = require('mongoose')
+import mongoose from 'mongoose'
 
 const StopSchema = new mongoose.Schema({
   name: String,
@@ -9,4 +9,4 @@ const StopSchema = new mongoose.Schema({
   type: { type: String }
 })
 
-module.exports = mongoose.model('Stop', StopSchema, 'Stops')
+export default mongoose.model('Stop', StopSchema, 'Stops')
