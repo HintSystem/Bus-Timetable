@@ -3,7 +3,7 @@
     <div class="row justify-center q-pb-md" style="gap: 0.5rem">
       <q-btn
         @click='watchId ? stopTracking() : beginTracking()'
-        :label='watchId ? "Stop tracking" : "Start tracking"'
+        :label='watchId ? $t("tracking.stop") : $t("tracking.start")'
         :color='watchId ? "negative" : "positive"'
         size="1rem"
         rounded
@@ -21,31 +21,31 @@
     <q-dialog v-model="SettingsVisible">
       <q-card>
         <q-card-section>
-          <div class="text-h6">Settings</div>
+          <div class="text-h6">{{ $t('settings') }}</div>
         </q-card-section>
 
         <q-separator inset/>
-        <q-item-label header>Debug</q-item-label>
+        <q-item-label header>{{ $t('debug') }}</q-item-label>
 
         <q-item tag="label">
-          <q-item-section>Show location log path</q-item-section>
+          <q-item-section>{{ $t('tracking.showLogPath') }}</q-item-section>
           <q-item-section avatar>
             <q-checkbox v-model="Settings.ShowLogPath"/>
           </q-item-section>
         </q-item>
 
         <q-separator inset/>
-        <q-item-label header>Logging</q-item-label>
+        <q-item-label header>{{ $t('logging') }}</q-item-label>
 
         <q-item tag="label">
-          <q-item-section>Enable location logging</q-item-section>
+          <q-item-section>{{ $t('tracking.enableLogging') }}</q-item-section>
           <q-item-section avatar>
             <q-checkbox v-model="Settings.LoggingEnabled"/>
           </q-item-section>
         </q-item>
 
         <q-item tag="label">
-          <q-item-section>Import logs from JSON</q-item-section>
+          <q-item-section>{{ $t('tracking.importLogs') }}</q-item-section>
           <q-item-section avatar>
             <q-file
               v-model="LogFile"
@@ -63,7 +63,7 @@
         </q-item>
 
         <q-item tag="label" v-show="LoggedPositions.length > 0">
-          <q-item-section>Save logs to JSON</q-item-section>
+          <q-item-section>{{ $t('tracking.saveLogs') }}</q-item-section>
           <q-item-section avatar>
             <q-btn
               @click="saveLogsToFile"
@@ -74,7 +74,7 @@
         </q-item>
 
         <q-item tag="label" v-show="LoggedPositions.length > 0">
-          <q-item-section>Clear location logs</q-item-section>
+          <q-item-section>{{ $t('tracking.clearLogs') }}</q-item-section>
           <q-item-section avatar>
             <q-btn
               @click="clearLogs"
@@ -109,8 +109,10 @@
 </template>
 
 <script setup>
-import { ref, shallowRef, triggerRef, watch } from 'vue'
 import { useQuasar, Notify, LocalStorage, copyToClipboard, exportFile } from 'quasar'
+import { ref, shallowRef, triggerRef, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 
 import { Capacitor, CapacitorHttp, registerPlugin } from '@capacitor/core'
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem'
@@ -147,7 +149,7 @@ function copyLocation () {
   copyToClipboard(Location.value.latitude + ', ' + Location.value.longitude)
   Notify.create({
     type: 'positive',
-    message: 'Copied coordinates!'
+    message: t('tracking.copyCoords')
   })
 }
 
@@ -271,7 +273,7 @@ async function saveLogsToFile () {
       }).then((file) => {
         Notify.create({
           type: 'positive',
-          message: `Saved logs to - ${numberedName}`,
+          message: t('tracking.savedLogs', { fileName: numberedName }),
           caption: file.uri
         })
       })
@@ -311,10 +313,10 @@ function importLogFile () {
 function confirmLogImport () {
   if (LoggedPositions.value.length > 0) {
     $q.dialog({
-      title: 'Replace logs with file?',
-      message: "You are about to <span class='text-negative'><strong>permanently delete</strong></span> and replace all existing logs with this newly imported file.",
+      title: t('tracking.replaceLogs.title'),
+      message: t('tracking.replaceLogs.message'),
       html: true,
-      ok: { color: 'negative', label: 'Delete Logs', 'no-caps': true },
+      ok: { color: 'negative', label: t('tracking.replaceLogs.confirm'), 'no-caps': true },
       cancel: true,
       persistent: true
     }).onCancel(() => {
@@ -343,14 +345,8 @@ function updatePos (position) {
         'Content-Type': 'application/json'
       },
       data: postData,
-      connectTimeout: 5000
+      connectTimeout: 3500
     })
-      .then((res) => {
-        Notify.create({ type: 'positive', message: `status: ${res.status}, ${JSON.stringify(res.data)}` })
-      })
-      .catch((err) => {
-        Notify.create({ type: 'error', message: err.message })
-      })
   } else {
     axios.post('/api/trackers', postData).catch((err) => { Notify.create({ type: 'error', message: err.message }) })
   }
@@ -375,8 +371,8 @@ async function beginTracking () {
 
   if (Capacitor.isNativePlatform()) {
     BackgroundGPS.addWatcher({
-      backgroundTitle: 'Autobuss tiek izsekots',
-      backgroundMessage: 'Aizver aplikāciju lai izslēgtu',
+      backgroundTitle: t('tracking.notificationTitle'),
+      backgroundMessage: t('tracking.notificationMessage'),
       requestPermissions: true
     }, (position, error) => {
       if (error) {

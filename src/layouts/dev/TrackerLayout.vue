@@ -2,8 +2,15 @@
   <q-layout view="lHh Lpr lFf">
     <q-header>
       <q-toolbar>
-        <q-toolbar-title>Bus Tracker</q-toolbar-title>
-        <a><b>ip:</b> {{ ip }}</a>
+        <q-toolbar-title>{{ $t('tracking.title') }}</q-toolbar-title>
+        <q-select
+          v-model="locale"
+          :options="localeOptions"
+          borderless
+          emit-value
+          map-options
+          style="font-size: large;"
+        />
       </q-toolbar>
     </q-header>
 
@@ -14,7 +21,11 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
-const ip = ref(window.location.host)
+const { locale } = useI18n({ useScope: 'global' })
+const localeOptions = [
+  { value: 'lv-LV', label: '🇱🇻 Latviešu' },
+  { value: 'en-US', label: '🇺🇸 English' }
+]
 </script>

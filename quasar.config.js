@@ -4,6 +4,7 @@
 // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js
 
 import { configure } from 'quasar/wrappers'
+import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
 const devApiPort = 4000
@@ -14,7 +15,7 @@ for (let i = 0; i < process.argv.length; i++) {
   }
 }
 
-export default configure((/* ctx */) => {
+export default configure((ctx) => {
   return {
     eslint: {
       // fix: true,
@@ -31,7 +32,7 @@ export default configure((/* ctx */) => {
     // app boot file (/src/boot)
     // --> boot files are part of "main.js"
     // https://v2.quasar.dev/quasar-cli-vite/boot-files
-    boot: ['Notify'],
+    boot: ['Localization', 'Notify'],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#css
     css: ['app.scss'],
@@ -74,7 +75,7 @@ export default configure((/* ctx */) => {
         '@capacitor-community': path.resolve(__dirname, 'src-capacitor/node_modules/@capacitor-community')
       },
 
-      vueRouterMode: 'history' // available values: 'hash', 'history'
+      vueRouterMode: 'history', // available values: 'hash', 'history'
       // vueRouterBase,
       // vueDevtools,
       // vueOptionsAPI: false,
@@ -93,9 +94,12 @@ export default configure((/* ctx */) => {
       // extendViteConf (viteConf) {},
       // viteVuePluginOptions: {},
 
-      // vitePlugins: [
-      //   [ 'package-name', { ..options.. } ]
-      // ]
+      vitePlugins: [
+        ['@intlify/unplugin-vue-i18n/vite', {
+          include: [fileURLToPath(new URL('./src/locales', import.meta.url))],
+          ssr: ctx.modeName === 'ssr'
+        }]
+      ]
     },
 
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devServer
