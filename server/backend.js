@@ -1,7 +1,9 @@
-import mongoose from 'mongoose'
 import express from 'express'
 import { createServer } from 'node:http'
 import { Server } from 'socket.io'
+
+import { importGtfs, openDb, closeDb, getStops, getRoutes } from 'gtfs'
+import path from 'node:path'
 
 function expectJSON (req, res, next) {
   for(const i in req.body) return next()
@@ -16,61 +18,29 @@ function errBadJSON(res, propertyName, info) {
 }
 
 export function databaseRoutes () {
+  importGtfs({
+    agencies: [{ path: path.join(import.meta.dirname, './public/gtfs/latest.zip') }]
+  })
+
+  openDb()
+  const events = ['exit', 'SIGINT', 'SIGUSR1', 'SIGUSR2', 'uncaughtException', 'SIGTERM']
+  events.forEach((eventType) => {
+    process.on(eventType, async () => {
+      console.log('Closing GTFS database ...')
+      closeDb()
+      process.exit()
+    })
+  })
+
   const router = express.Router()
-
-  function setModelRoutes (path, dataModel) {
-    router.route(path)
-    .get(async (req, res, next) => {
-      dataModel.find().lean().then((results) => {
-        res.status(200).json(results)
-      }).catch(next)
-    })
-    .patch(expectJSON, async (req, res, next) => {
-      if (!('objects' in req.body)) {
-        errBadJSON(res, 'objects', 'Key must be the id and the value must contain the changed properties.')
-        return
-      }
-
-      for (const key in req.body.objects) {
-        const doc = await dataModel.findById(key)
-        doc.set(req.body.objects[key])
-        await doc.save().catch((err) => {
-          throw err
-        })
-      }
-      res.status(200).end()
-    })
-    .post(expectJSON, async (req, res, next) => {
-      if (!('objects' in req.body)) {
-        errBadJSON(res, 'objects')
-        return
-      }
-
-      dataModel.insertMany(req.body.objects).then(() => {
-        res.status(200).end()
-      }).catch(next)
-    })
-    .delete(expectJSON, async (req, res, next) => {
-      if (!(req.body.id instanceof Array)) {
-        errBadJSON(res, 'id', 'Make sure to submit `id` as an array.')
-        return
-      }
-
-      dataModel.deleteMany( { _id: { $in: req.body.id } } ).then(() => {
-        res.status(200).end()
-      }).catch(next)
-    })
-  }
-
-  mongoose.connect('mongodb://127.0.0.1:27017/BusRouteData')
-    .catch((err) => {
-      console.warn(err)
-    })
-
   router.use(express.json())
 
-  setModelRoutes('/stops', require('./models/Stop'))
-  setModelRoutes('/routes', require('./models/Route'))
+  router.route('/stops').get((req, res, next) => {
+    res.status(200).json(getStops())
+  })
+  router.route('/routes').get((req, res, next) => {
+    res.status(200).json(getRoutes())
+  })
 
   return router
 }

@@ -33,3 +33,4 @@ yarn-error.log*
 .env.local*
 
 /src/components/constants.js
+/public/gtfs/**

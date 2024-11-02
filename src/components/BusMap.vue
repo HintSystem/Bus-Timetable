@@ -86,7 +86,6 @@ onMounted(() => {
     }
   })
 })
-
 </script>
 
 <style src="maplibre-gl/dist/maplibre-gl.css"/>
