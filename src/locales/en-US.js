@@ -12,6 +12,7 @@ export default {
     importLogs: 'Import logs from JSON',
     saveLogs: 'Save logs to JSON',
     clearLogs: 'Clear location logs',
+    playLogs: 'Play location from logs',
     replaceLogs: {
       title: 'Replace logs with file?',
       message: "You are about to <span class='text-negative'><strong>permanently delete</strong></span> and replace all existing logs with this newly imported file.",

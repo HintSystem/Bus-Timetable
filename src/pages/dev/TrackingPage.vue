@@ -85,6 +85,43 @@
             />
           </q-item-section>
         </q-item>
+
+        <q-card-section v-if="LoggedPositions.length > 0">
+          <q-item-label header style="padding: 0 0 0.5em">{{ $t('tracking.playLogs') }}</q-item-label>
+
+          <div style="position: relative;">
+            <q-slider
+              @change="LogPlayer.Running.value ? LogPlayer.play() : null"
+              v-model="LogPlayer.Progress.value"
+              @update:model-value="(value) => LogPlayer.setProgress(value)"
+              :min="0"
+              :max="1"
+              :step="0"
+            />
+              <div style="position: absolute; top: 70%; left: 0;">
+                {{ formatTimestamp(LogPlayer.getDuration() * LogPlayer.Progress.value) }}
+              </div>
+              <div style="position: absolute; top: 70%; right: 0;">
+                {{ formatTimestamp(LogPlayer.getDuration()) }}
+              </div>
+          </div>
+
+          <div class="row no-wrap justify-center items-center q-gutter-sm">
+              <q-btn
+                @click="LogPlayer.Running.value ? LogPlayer.pause() : LogPlayer.play()"
+                :icon="LogPlayer.Running.value ? 'pause' : 'play_arrow'"
+                round
+              />
+              <q-btn
+                @click="LogPlayer.Repeat.value = !LogPlayer.Repeat.value"
+                :color="LogPlayer.Repeat.value ? 'primary' : 'blue-grey-4'"
+                icon="repeat"
+                size="sm"
+                round
+              />
+          </div>
+
+        </q-card-section>
       </q-card>
     </q-dialog>
     <BusMap
@@ -223,8 +260,6 @@ function mapLoaded (map) {
 // Logging implementation
 
 function logPosition (position) {
-  if (Settings.value.LoggingEnabled !== true) return
-
   LoggedPositions.value.push(position)
   triggerRef(LoggedPositions)
 
@@ -236,6 +271,15 @@ function clearLogs () {
   LoggedPositions.value = []
 
   LocalStorage.removeItem('LoggedPositions')
+}
+
+function formatTimestamp (timestamp) {
+  const seconds = Math.floor(timestamp / 1000)
+  const hrs = Math.floor(seconds / 3600)
+  const mins = Math.floor((seconds % 3600) / 60)
+  const secs = seconds % 60
+
+  return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
 }
 
 async function getNumberedName (fileName) {
@@ -329,6 +373,79 @@ function confirmLogImport () {
   }
 }
 
+const LogPlayer = {
+  Running: ref(false),
+  Progress: ref(0),
+  Repeat: ref(false),
+  currentTimeout: null,
+  progressInterval: null,
+  getDuration: function getDuration () {
+    return (LoggedPositions.value.at(-1).timestamp - LoggedPositions.value[0].timestamp)
+  },
+  setProgress: function setProgress (newProgress) {
+    this.Progress.value = Math.max(0, Math.min(1, newProgress))
+    this.clear()
+  },
+  play: function play () {
+    if (watchId.value) stopTracking()
+
+    this.Running.value = true
+    let startTime = Date.now() - (this.Progress.value * this.getDuration())
+    let currentIndex = 0
+
+    this.clear()
+    this.progressInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime
+      this.Progress.value = Math.min(elapsed / this.getDuration(), 1)
+    }, 1000)
+
+    const scheduleNext = () => {
+      if (!this.Running) return
+      if (currentIndex >= LoggedPositions.value.length) {
+        if (!this.Repeat.value) {
+          this.pause()
+          return
+        }
+        currentIndex = 0
+        startTime = Date.now()
+      }
+
+      const event = LoggedPositions.value[currentIndex]
+      const eventTime = LoggedPositions.value[currentIndex].timestamp - LoggedPositions.value[0].timestamp
+      const timeUntilEvent = eventTime - (Date.now() - startTime)
+
+      if (timeUntilEvent <= 0) {
+        if (timeUntilEvent >= -1500) {
+          updatePos(event)
+        }
+        currentIndex++
+        scheduleNext()
+      } else {
+        this.currentTimeout = setTimeout(() => {
+          updatePos(event)
+          currentIndex++
+          scheduleNext()
+        }, timeUntilEvent)
+      }
+    }
+    scheduleNext()
+  },
+  pause: function pause () {
+    this.clear()
+    this.Running.value = false
+  },
+  clear: function clear () {
+    if (this.currentTimeout) {
+      clearTimeout(this.currentTimeout)
+      this.currentTimeout = null
+    }
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval)
+      this.progressInterval = null
+    }
+  }
+}
+
 // Tracking functions
 
 function updatePos (position) {
@@ -351,6 +468,7 @@ function updatePos (position) {
     axios.post('/api/trackers', postData).catch((err) => { Notify.create({ type: 'error', message: err.message }) })
   }
 
+  if (!Settings.value.LoggingEnabled || LogPlayer.Running.value) return
   logPosition(position)
 }
 
@@ -367,6 +485,7 @@ if (Capacitor.isNativePlatform()) {
 
 const ErrorCodes = ['PERMISSION_DENIED', 'POSITION_UNAVAILABLE', 'TIMEOUT']
 async function beginTracking () {
+  if (LogPlayer.Running.value) { LogPlayer.pause() }
   LoadingPosition.value = true
 
   if (Capacitor.isNativePlatform()) {
