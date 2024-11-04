@@ -15,7 +15,14 @@
         @click="SettingsVisible = true"
         icon="settings"
         round
-      />
+      >
+        <q-badge
+          v-show="LogPlayer.Running.value"
+          rounded
+          floating
+          color="amber"
+        />
+      </q-btn>
     </div>
 
     <q-dialog v-model="SettingsVisible">
@@ -92,14 +99,14 @@
           <div style="position: relative;">
             <q-slider
               @change="LogPlayer.Running.value ? LogPlayer.play() : null"
-              v-model="LogPlayer.Progress.value"
+              v-model="Settings.PlayerProgress"
               @update:model-value="(value) => LogPlayer.setProgress(value)"
               :min="0"
               :max="1"
               :step="0"
             />
               <div style="position: absolute; top: 70%; left: 0;">
-                {{ formatTimestamp(LogPlayer.getDuration() * LogPlayer.Progress.value) }}
+                {{ formatTimestamp(LogPlayer.getDuration() * Settings.PlayerProgress) }}
               </div>
               <div style="position: absolute; top: 70%; right: 0;">
                 {{ formatTimestamp(LogPlayer.getDuration()) }}
@@ -110,11 +117,12 @@
               <q-btn
                 @click="LogPlayer.Running.value ? LogPlayer.pause() : LogPlayer.play()"
                 :icon="LogPlayer.Running.value ? 'pause' : 'play_arrow'"
+                :color="LogPlayer.Running.value ? 'amber' : undefined"
                 round
               />
               <q-btn
-                @click="LogPlayer.Repeat.value = !LogPlayer.Repeat.value"
-                :color="LogPlayer.Repeat.value ? 'primary' : 'blue-grey-4'"
+                @click="Settings.PlayerRepeats = !Settings.PlayerRepeats"
+                :color="Settings.PlayerRepeats ? 'primary' : 'blue-grey-4'"
                 icon="repeat"
                 size="sm"
                 round
@@ -162,12 +170,21 @@ import { apiServers } from 'components/constants'
 
 const $q = useQuasar()
 
-const SettingsVisible = ref(false)
-
-const Settings = ref({
+let defaultSettings = {
   ShowLogPath: true,
-  LoggingEnabled: false
-})
+  LoggingEnabled: false,
+  PlayerProgress: 0,
+  PlayerRepeats: false
+}
+const savedSettings = LocalStorage.getItem('TrackerSettings')
+if (savedSettings && savedSettings.length === defaultSettings.length) {
+  defaultSettings = savedSettings
+}
+
+const Settings = ref(defaultSettings)
+watch(Settings.value, () => { LocalStorage.setItem('TrackerSettings', Settings.value) })
+
+const SettingsVisible = ref(false)
 
 const LogFile = ref(null)
 const LoggedPositions = shallowRef(LocalStorage.getItem('LoggedPositions') || [])
@@ -202,7 +219,7 @@ function moveMarker (coords) {
 function mapLoaded (map) {
   busMap = map
 
-  watch(Settings.value, () => {
+  watch(() => Settings.value.ShowLogPath, () => {
     const value = Settings.value.ShowLogPath ? 'visible' : 'none'
     map.value.setLayoutProperty('TrackingPath', 'visibility', value)
     map.value.setLayoutProperty('TrackingPoints', 'visibility', value)
@@ -375,34 +392,32 @@ function confirmLogImport () {
 
 const LogPlayer = {
   Running: ref(false),
-  Progress: ref(0),
-  Repeat: ref(false),
   currentTimeout: null,
   progressInterval: null,
   getDuration: function getDuration () {
-    return (LoggedPositions.value.at(-1).timestamp - LoggedPositions.value[0].timestamp)
+    return (LoggedPositions.value.at(-1).time - LoggedPositions.value[0].time)
   },
   setProgress: function setProgress (newProgress) {
-    this.Progress.value = Math.max(0, Math.min(1, newProgress))
+    Settings.value.PlayerProgress = Math.max(0, Math.min(1, newProgress))
     this.clear()
   },
   play: function play () {
     if (watchId.value) stopTracking()
 
     this.Running.value = true
-    let startTime = Date.now() - (this.Progress.value * this.getDuration())
+    let startTime = Date.now() - (Settings.value.PlayerProgress * this.getDuration())
     let currentIndex = 0
 
     this.clear()
     this.progressInterval = setInterval(() => {
       const elapsed = Date.now() - startTime
-      this.Progress.value = Math.min(elapsed / this.getDuration(), 1)
+      Settings.value.PlayerProgress = Math.min(elapsed / this.getDuration(), 1)
     }, 1000)
 
     const scheduleNext = () => {
       if (!this.Running) return
       if (currentIndex >= LoggedPositions.value.length) {
-        if (!this.Repeat.value) {
+        if (!Settings.value.PlayerRepeats) {
           this.pause()
           return
         }
@@ -411,13 +426,11 @@ const LogPlayer = {
       }
 
       const event = LoggedPositions.value[currentIndex]
-      const eventTime = LoggedPositions.value[currentIndex].timestamp - LoggedPositions.value[0].timestamp
+      const eventTime = LoggedPositions.value[currentIndex].time - LoggedPositions.value[0].time
       const timeUntilEvent = eventTime - (Date.now() - startTime)
 
       if (timeUntilEvent <= 0) {
-        if (timeUntilEvent >= -1500) {
-          updatePos(event)
-        }
+        if (timeUntilEvent >= -1500) updatePos(event)
         currentIndex++
         scheduleNext()
       } else {
@@ -432,6 +445,7 @@ const LogPlayer = {
   },
   pause: function pause () {
     this.clear()
+    marker.remove()
     this.Running.value = false
   },
   clear: function clear () {
