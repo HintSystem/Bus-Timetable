@@ -8,10 +8,10 @@
           round
           icon="menu"
           aria-label="Menu"
-          @click="toggleLeftDrawer"
+          @click="leftDrawerOpen = !leftDrawerOpen"
         />
 
-        <q-toolbar-title> Autobusu saraksts </q-toolbar-title>
+        <q-toolbar-title> {{ $t('appName') }} </q-toolbar-title>
       </q-toolbar>
     </q-header>
 
@@ -40,8 +40,10 @@
   </q-layout>
 </template>
 
-<script>
-import { defineComponent, ref } from 'vue'
+<script setup>
+import { ref } from 'vue'
+
+const leftDrawerOpen = ref(false)
 
 const linksList = [
   {
@@ -70,20 +72,4 @@ const linksList = [
     link: 'https://facebook.quasar.dev'
   }
 ]
-
-export default defineComponent({
-  name: 'MainLayout',
-
-  setup () {
-    const leftDrawerOpen = ref(false)
-
-    return {
-      linksList,
-      leftDrawerOpen,
-      toggleLeftDrawer () {
-        leftDrawerOpen.value = !leftDrawerOpen.value
-      }
-    }
-  }
-})
 </script>

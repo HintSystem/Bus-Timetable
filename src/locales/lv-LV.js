@@ -1,4 +1,5 @@
 export default {
+  appName: 'Autobusu Saraksts',
   settings: 'Iestatījumi',
   debug: 'Atkļūdošana',
 

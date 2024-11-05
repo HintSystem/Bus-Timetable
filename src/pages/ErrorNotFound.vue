@@ -19,17 +19,9 @@
   </div>
 </template>
 
-<script>
-import { defineComponent } from 'vue'
-
-export default defineComponent({
-  name: 'ErrorNotFound'
-})
-</script>
-
 <style scoped lang="scss">
 .q-btn {
-  background: lighten($secondary, 18);
+  background: adjust-color($color: $secondary, $lightness: 18%);
   color: $primary;
   border-radius: 100vh;
 }

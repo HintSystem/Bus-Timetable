@@ -1,7 +1,9 @@
 export default {
+  appName: 'Bus Timetable',
   settings: 'Settings',
   debug: 'Debug',
   logging: 'Logging',
+
   tracking: {
     title: 'Bus Tracker',
     start: 'Start tracking',

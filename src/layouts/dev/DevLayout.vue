@@ -12,18 +12,8 @@
   </q-layout>
 </template>
 
-<script>
-import { defineComponent } from 'vue'
+<script setup>
 import { useRoute } from 'vue-router'
 
-export default defineComponent({
-  name: 'DevLayout',
-  setup () {
-    const pageName = useRoute().name
-
-    return {
-      pageName
-    }
-  }
-})
+const pageName = useRoute().name
 </script>
