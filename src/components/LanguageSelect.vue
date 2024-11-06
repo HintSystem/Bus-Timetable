@@ -14,7 +14,7 @@ import { useI18n } from 'vue-i18n'
 
 const { locale } = useI18n({ useScope: 'global' })
 const localeOptions = [
-  { value: 'lv-LV', label: '🇱🇻 Latviešu' },
+  { value: 'lv', label: '🇱🇻 Latviešu' },
   { value: 'en-US', label: '🇺🇸 English' }
 ]
 </script>
