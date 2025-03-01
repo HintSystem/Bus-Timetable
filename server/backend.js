@@ -7,17 +7,18 @@ import path from 'node:path'
 
 function expectJSON (req, res, next) {
   for(const i in req.body) return next()
-  res.status(400).json({message: 'No JSON body was provided.'})
+  res.status(400).json({ message: 'No JSON body was provided.' })
 }
 
-function errBadJSON(res, propertyName, info) {
-  let msg = 'JSON property of `' + propertyName + '` does not exist.'
+function badJSON (propertyName) {
+  return function(req, res, next) {
+    if (propertyName in req.body) { return next() }
 
-  if (info !== undefined) msg += ' ' + info
-  res.status(400).json( { message: msg } )
+    res.status(400).json({ message: `JSON property of '${propertyName}' must be present in request.` })
+  }
 }
 
-export function databaseRoutes () {
+export function databaseRoutes (router) {
   importGtfs({
     agencies: [{ path: path.join(import.meta.dirname, './public/gtfs/latest.zip') }]
   })
@@ -32,9 +33,6 @@ export function databaseRoutes () {
     })
   })
 
-  const router = express.Router()
-  router.use(express.json())
-
   router.route('/stops').get((req, res, next) => {
     res.status(200).json(getStops())
   })
@@ -45,28 +43,50 @@ export function databaseRoutes () {
   return router
 }
 
+
 export function setup (app) {
   if (!app) { app = express() }
   const httpServer = createServer(app)
 
-  const router = databaseRoutes()
+  const router = express.Router()
+  router.use(express.json())
+  router.route('/status').get((req, res) => res.sendStatus(200))
+  //databaseRoutes(router)
+
+  router.get('/gtfs/:file', (req, res, next) => {
+    let fileName = req.params.file
+    if (path.extname(fileName) === '') { fileName += '.txt' }
+
+    res.sendFile(fileName, { root: path.join(__dirname, '../public/gtfs/') }, (err) => {
+      if (err) {
+        console.log('Error sending file:', err)
+        res.sendStatus(err.status)
+      }
+    })
+  })
 
   if (true) {
     const io = new Server(httpServer, {
       addTrailingSlash: false
     })
 
-    router.route('/trackers').post(expectJSON, async (req, res, next) => {
-      if (!('id' in req.body)) {
-        errBadJSON(res, 'id')
-        return
-      }
-      if (!('position' in req.body)) {
-        errBadJSON(res, 'id')
-        return
-      }
+    router.route('/trackers').post(expectJSON,
+      badJSON('id'),
+      (req, res, next) => {
+        if (typeof req.body.action !== 'string') return next()
+        const action = req.body.action.toLowerCase()
 
-      io.emit('location', req.body)
+        if (action === 'stop') {
+          io.emit('tracker_disconnect', req.body.id)
+          return res.sendStatus(200)
+        }
+        next()
+      },
+      badJSON('position'),
+      (req, res, next) => {
+        console.log(`pos received ${req.body.id}`)
+        io.emit('location', req.body)
+        res.sendStatus(200)
     })
   }
 

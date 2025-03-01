@@ -135,38 +135,23 @@
     <BusMap
       class="col"
       style="min-height: none; border-radius: 6px"
-      :id-blacklist="trackerId"
+      :tracker="{id: trackerId, position: Position}"
       @map-loaded="mapLoaded"
-    >
-      <div
-        v-if="Location"
-        @dblclick="copyLocation"
-        class="maplibregl-ctrl-group"
-        style="user-select: none; font-size: 1.2em; top: 0.4em; left: 0.4em; position: absolute; z-index: 10;
-          padding: 0.1em 0.25em; opacity: 0.7;
-        "
-      >
-        lat: {{Location.latitude}} <br>
-        long: {{Location.longitude}}
-      </div>
-    </BusMap>
+    />
   </q-page>
 </template>
 
 <script setup>
-import { useQuasar, Notify, LocalStorage, copyToClipboard, exportFile } from 'quasar'
+import { useQuasar, Notify, LocalStorage, exportFile } from 'quasar'
 import { ref, shallowRef, triggerRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 
-import { Capacitor, CapacitorHttp, registerPlugin } from '@capacitor/core'
+import { Capacitor, registerPlugin } from '@capacitor/core'
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem'
 
-import { Marker } from 'maplibre-gl'
 import BusMap from 'src/components/BusMap.vue'
-
-import axios from 'axios'
-import { apiServers } from 'components/constants'
+import apiRequest from 'src/components/apiRequest'
 
 const $q = useQuasar()
 
@@ -189,36 +174,12 @@ const SettingsVisible = ref(false)
 const LogFile = ref(null)
 const LoggedPositions = shallowRef(LocalStorage.getItem('LoggedPositions') || [])
 
-const Location = ref()
+const Position = ref(null)
 const LoadingPosition = ref(false)
 const watchId = ref(null)
 const trackerId = ref(crypto.randomUUID())
 
-let busMap = null
-const marker = new Marker({
-  subpixelPositioning: true
-})
-
-function copyLocation () {
-  copyToClipboard(Location.value.latitude + ', ' + Location.value.longitude)
-  Notify.create({
-    type: 'positive',
-    message: t('tracking.copyCoords')
-  })
-}
-
-function moveMarker (coords) {
-  marker.setLngLat(coords)
-
-  if (!marker._map && busMap.value) {
-    marker.addTo(busMap.value)
-    busMap.value.panTo(coords)
-  }
-}
-
 function mapLoaded (map) {
-  busMap = map
-
   watch(() => Settings.value.ShowLogPath, () => {
     const value = Settings.value.ShowLogPath ? 'visible' : 'none'
     map.value.setLayoutProperty('TrackingPath', 'visibility', value)
@@ -246,11 +207,9 @@ function mapLoaded (map) {
         })
         .addLayer({
           id: 'TrackingPath',
-          type: 'line',
           source: 'TrackingLog',
-          layout: {
-            visibility: 'visible'
-          },
+          type: 'line',
+          layout: { visibility: 'visible' },
           paint: {
             'line-color': 'limegreen',
             'line-width': 6,
@@ -259,11 +218,9 @@ function mapLoaded (map) {
         })
         .addLayer({
           id: 'TrackingPoints',
-          type: 'circle',
           source: 'TrackingLog',
-          layout: {
-            visibility: 'visible'
-          },
+          type: 'circle',
+          layout: { visibility: 'visible' },
           paint: {
             'circle-color': 'black',
             'circle-radius': 3,
@@ -445,7 +402,7 @@ const LogPlayer = {
   },
   pause: function pause () {
     this.clear()
-    marker.remove()
+    Position.value = null
     this.Running.value = false
   },
   clear: function clear () {
@@ -462,28 +419,18 @@ const LogPlayer = {
 
 // Tracking functions
 
-function updatePos (position) {
+function updatePos (newPos) {
   LoadingPosition.value = false
-  Location.value = position
+  Position.value = newPos
 
-  moveMarker([position.longitude, position.latitude])
-
-  const postData = { id: trackerId.value, position }
-  if (Capacitor.isNativePlatform()) {
-    CapacitorHttp.post({
-      url: apiServers[0] + '/api/trackers',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      data: postData,
-      connectTimeout: 3500
-    })
-  } else {
-    axios.post('/api/trackers', postData).catch((err) => { Notify.create({ type: 'error', message: err.message }) })
-  }
+  apiRequest('/trackers', {
+    data: { id: trackerId.value, position: newPos },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  })
 
   if (!Settings.value.LoggingEnabled || LogPlayer.Running.value) return
-  logPosition(position)
+  logPosition(newPos)
 }
 
 let Geolocation
@@ -548,7 +495,13 @@ async function beginTracking () {
 
 function stopTracking () {
   LoadingPosition.value = false
-  marker.remove()
+  Position.value = null
+
+  apiRequest('/trackers', {
+    data: { id: trackerId.value, action: 'stop' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  })
 
   if (watchId.value) {
     if (Capacitor.isNativePlatform()) {

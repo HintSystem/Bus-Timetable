@@ -8,11 +8,16 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, h, createApp } from 'vue'
+import { Notify, copyToClipboard } from 'quasar'
 import { io } from 'socket.io-client'
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 
 import { Map as MapLibreMap, NavigationControl, Marker } from 'maplibre-gl'
 import { mapCenter } from './constants'
+import { parse } from 'papaparse'
+import apiRequest from './apiRequest'
 
 function hslToHex (h, s, l) {
   l /= 100
@@ -27,11 +32,74 @@ function hslToHex (h, s, l) {
 
 const emit = defineEmits(['mapMounted', 'mapLoaded'])
 const props = defineProps({
-  idBlacklist: String
+  tracker: {
+    type: Object,
+    default () { return { id: null, position: {} } }
+  }
 })
+
+const tracker = {
+  copyLocation () {
+    copyToClipboard(props.tracker.position.latitude + ', ' + props.tracker.position.longitude)
+    Notify.create({
+      type: 'positive',
+      message: t('tracking.copyCoords')
+    })
+  }
+}
 
 const mapContainer = ref()
 const map = ref()
+
+class TrackerInfoControl {
+  constructor () {
+    this.container = null
+    this.app = null
+  }
+
+  onAdd () {
+    if (!this.app) {
+      this.container = document.createElement('div')
+      this.container.className = 'maplibregl-ctrl maplibregl-ctrl-group'
+      this.container.style.cssText = 'user-select: none; font-size: 1.2em; padding: 0.1em 0.25em; opacity: 0.7;'
+
+      const TrackerComponent = {
+        setup () {
+          return () => h('div', {
+            onDblclick: tracker.copyLocation
+          }, `lat: ${props.tracker.position?.latitude ?? 'N/A'}\nlong: ${props.tracker.position?.longitude ?? 'N/A'}`)
+        }
+      }
+
+      this.app = createApp(TrackerComponent)
+    }
+
+    this.app.mount(this.container)
+    return this.container
+  }
+
+  onRemove () { this.app.unmount(); this.container.remove() }
+}
+
+function getShape (id) {
+  return new Promise((resolve) => {
+    apiRequest('/gtfs/shapes')
+      .then(res => res.text())
+      .then(res => parse(res, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (res) => {
+          const list = []
+          for (const segment of res.data) {
+            if (segment.shape_id !== id) continue
+            list[segment.shape_pt_sequence] = [parseFloat(segment.shape_pt_lon), parseFloat(segment.shape_pt_lat)]
+          }
+          console.log(list)
+          resolve(list)
+        }
+      }))
+  })
+}
 
 onMounted(() => {
   map.value = new MapLibreMap({
@@ -54,14 +122,68 @@ onMounted(() => {
     })
     .addControl(new NavigationControl(), 'top-right')
 
+  if (props.tracker.id) { map.value.addControl(new TrackerInfoControl(), 'top-left') }
+
+  map.value
+    .addSource('CurrentRoute', {
+      type: 'geojson',
+      data: undefined
+    })
+    .addLayer({
+      id: 'RoutePath_stroke',
+      source: 'CurrentRoute',
+      type: 'line',
+      layout: {
+        'line-join': 'round',
+        'line-cap': 'round'
+      },
+      paint: {
+        'line-width': 10,
+        'line-blur': 2,
+        'line-opacity': 0.4
+      }
+    })
+    .addLayer({
+      id: 'RoutePath',
+      source: 'CurrentRoute',
+      type: 'line',
+      layout: {
+        'line-join': 'round',
+        'line-cap': 'round'
+      },
+      paint: {
+        'line-color': 'limegreen',
+        'line-width': 6
+      }
+    })
+
+  apiRequest('/gtfs/trips')
+    .then(res => res.text())
+    .then(res => parse(res, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (res) => {
+        getShape(res.data[0].shape_id).then((data) => {
+          map.value.getSource('CurrentRoute').setData({
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'LineString',
+              coordinates: data
+            }
+          })
+        })
+      }
+    }))
+
   emit('mapMounted', map)
   map.value.on('load', () => { emit('mapLoaded', map) })
 
   const TrackerMarkers = new Map()
   const socket = io()
 
-  socket.on('location', (msg) => {
-    if (msg.id === props.idBlacklist) return
+  socket.on('location', function onLocationReceived (msg) {
+    if (msg.id === props.tracker.id) return
     console.log('tracker location:', msg)
 
     let LocationMarker = TrackerMarkers.get(msg.id)
@@ -78,14 +200,15 @@ onMounted(() => {
     LocationMarker.setLngLat([msg.position.longitude, msg.position.latitude])
   })
 
-  socket.on('tracker_disconnect', (msg) => {
-    const Marker = TrackerMarkers.get(msg)
+  socket.on('tracker_disconnect', (id) => {
+    const Marker = TrackerMarkers.get(id)
     if (Marker) {
       Marker.remove()
-      TrackerMarkers.delete(msg)
+      TrackerMarkers.delete(id)
     }
   })
 })
+
 </script>
 
 <style src="maplibre-gl/dist/maplibre-gl.css"/>
