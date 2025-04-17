@@ -8,13 +8,13 @@
 </template>
 
 <script setup>
-import { onMounted, ref, h, createApp } from 'vue'
+import { onMounted, ref, watch, h, createApp } from 'vue'
 import { Notify, copyToClipboard } from 'quasar'
 import { io } from 'socket.io-client'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 
-import { Map as MapLibreMap, NavigationControl, Marker } from 'maplibre-gl'
+import { Map as MapLibreMap, NavigationControl, Marker, Popup } from 'maplibre-gl'
 import { mapCenter } from './constants'
 import { parse } from 'papaparse'
 import apiRequest from './apiRequest'
@@ -94,10 +94,75 @@ function getShape (id) {
             if (segment.shape_id !== id) continue
             list[segment.shape_pt_sequence] = [parseFloat(segment.shape_pt_lon), parseFloat(segment.shape_pt_lat)]
           }
-          console.log(list)
           resolve(list)
         }
       }))
+  })
+}
+
+function getStops () {
+  return new Promise((resolve) => {
+    apiRequest('/gtfs/stops')
+      .then(res => res.text())
+      .then(res => parse(res, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (res) => {
+          resolve(res.data)
+        }
+      }))
+  })
+}
+
+const currentPath = ref([])
+function setupRoutePath (map) {
+  watch(currentPath, () => {
+    const geoJSONData = {
+      type: 'Feature',
+      properties: {},
+      geometry: {
+        type: 'LineString',
+        coordinates: currentPath.value
+      }
+    }
+
+    const lineSource = map.getSource('CurrentRoute')
+    if (lineSource) {
+      lineSource.setData(geoJSONData)
+    } else {
+      map
+        .addSource('CurrentRoute', {
+          type: 'geojson',
+          data: geoJSONData
+        })
+        .addLayer({
+          id: 'RoutePath_stroke',
+          source: 'CurrentRoute',
+          type: 'line',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-width': 10,
+            'line-blur': 2,
+            'line-opacity': 0.4
+          }
+        })
+        .addLayer({
+          id: 'RoutePath',
+          source: 'CurrentRoute',
+          type: 'line',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': 'limegreen',
+            'line-width': 6
+          }
+        })
+    }
   })
 }
 
@@ -124,38 +189,7 @@ onMounted(() => {
 
   if (props.tracker.id) { map.value.addControl(new TrackerInfoControl(), 'top-left') }
 
-  map.value
-    .addSource('CurrentRoute', {
-      type: 'geojson',
-      data: undefined
-    })
-    .addLayer({
-      id: 'RoutePath_stroke',
-      source: 'CurrentRoute',
-      type: 'line',
-      layout: {
-        'line-join': 'round',
-        'line-cap': 'round'
-      },
-      paint: {
-        'line-width': 10,
-        'line-blur': 2,
-        'line-opacity': 0.4
-      }
-    })
-    .addLayer({
-      id: 'RoutePath',
-      source: 'CurrentRoute',
-      type: 'line',
-      layout: {
-        'line-join': 'round',
-        'line-cap': 'round'
-      },
-      paint: {
-        'line-color': 'limegreen',
-        'line-width': 6
-      }
-    })
+  setupRoutePath(map.value)
 
   apiRequest('/gtfs/trips')
     .then(res => res.text())
@@ -164,17 +198,32 @@ onMounted(() => {
       skipEmptyLines: true,
       complete: (res) => {
         getShape(res.data[0].shape_id).then((data) => {
-          map.value.getSource('CurrentRoute').setData({
-            type: 'Feature',
-            properties: {},
-            geometry: {
-              type: 'LineString',
-              coordinates: data
-            }
-          })
+          currentPath.value = data
         })
       }
     }))
+
+  getStops().then(stops => {
+    console.log('stops', stops)
+
+    for (const el of stops) {
+      const split = el.stop_id.split('.')
+      if (split[0] === '1' && el.stop_id !== '00' && el.stop_id !== '01') { continue }
+
+      if (split.length > 1) {
+        const dirSplit = split[1].split('-')
+        if (dirSplit[0] === '1') { continue }
+        if (Number(dirSplit[1]) > 14) { continue }
+      }
+
+      new Marker({
+        color: '#38ab44'
+      })
+        .setLngLat([el.stop_lon, el.stop_lat])
+        .setPopup(new Popup().setHTML(`<h1 style="font-size:1.65em; font-weight:500; margin:0; line-height:normal">${el.stop_name}</h1>`))
+        .addTo(map.value)
+    }
+  })
 
   emit('mapMounted', map)
   map.value.on('load', () => { emit('mapLoaded', map) })
